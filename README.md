@@ -12,17 +12,21 @@ HTML5 + CSS3 + JavaScript vanilla. **Cero dependencias externas.** ~22 KB.
 | `app.js` | Lógica, cronometraje `performance.now()`, anti-satisficing, `localStorage`, envío headless |
 | `spss_syntax_master.sps` | Sintaxis SPSS: importa CSV, rotula, recodifica, computa subescalas, fiabilidad |
 
-## Configurar Google Forms (headless)
+## Configurar el envío de datos (webhook)
 
-1. Cree un Google Form con 38 preguntas de texto corto (una por variable):
-   `ID_SUJETO`, `EDAD`, `SEXO`, `CARRERA`, `ANO_ACADEMICO`, `USO_IA_FREQ`,
-   `EYA_01`…`EYA_28`, `RT_TOTAL_MS`, `FLAG_RAPIDEZ`, `IMC_CONTROL`.
-2. Abra el formulario en modo vista previa → clic derecho → *Ver código fuente*.
-3. Busque `entry.` — cada pregunta tiene un ID como `entry.1234567890`.
-4. En `app.js`, reemplace la URL en `FORM_CFG.url` y cada ID en `FORM_CFG.entries`.
-5. Vincule el Form a una Google Sheet (Respuestas → hoja de cálculo).
+La app envía las respuestas a un webhook de Google Apps Script que las guarda
+directamente en tu hoja de cálculo. Sin entry IDs frágiles.
 
-El envío usa `fetch` con `mode: 'no-cors'` — silencioso, sin redirección.
+1. Ve a **script.google.com** → Nuevo proyecto.
+2. Copia el contenido de `webhook.gs` (está en este repo), pégalo y guarda.
+3. **Implementar → Nueva implementación → Aplicación web**:
+   - Ejecutar como: **Yo**
+   - Acceso: **Cualquier persona** (anónimo)
+4. Copia la URL del despliegue (termina en `/exec`).
+5. En `app.js`, reemplaza `PEGAR_URL_DEL_DESPLIEGUE_AQUI` con esa URL.
+6. Haz commit del cambio — la app empezará a enviar datos reales.
+
+La hoja de cálculo ya existe: **EYA-28 · Respuestas**, con encabezados listos.
 
 ## Flujo SPSS (3 clics)
 
