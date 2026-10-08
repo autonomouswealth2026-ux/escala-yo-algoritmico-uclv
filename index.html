@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Escala del Yo Algorítmico (EYA-28) — UCLV">
+<title>EYA-28 · Escala del Yo Algorítmico</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main id="app" aria-live="polite">
+
+<!-- PASO 0: Bienvenida / consentimiento -->
+<section class="step active" id="step-0" aria-labelledby="t0">
+  <header class="card-head">
+    <p class="kicker">Universidad Central "Marta Abreu" de Las Villas</p>
+    <h1 id="t0">Escala del Yo Algorítmico (EYA-28)</h1>
+  </header>
+  <div class="card-body">
+    <p>Este cuestionario estudia cómo la inteligencia artificial influye en los procesos de aprendizaje de estudiantes universitarios. Consta de <strong>28 afirmaciones</strong> organizadas en 4 bloques breves.</p>
+    <p>No hay respuestas correctas ni incorrectas. Sus respuestas son <strong>anónimas</strong> y se usarán solo con fines de investigación.</p>
+    <p class="muted">Duración aproximada: 8–10 minutos. Puede interrumpir y continuar después; su progreso se guarda automáticamente en este dispositivo.</p>
+    <label class="consent"><input type="checkbox" id="consent"> <span>He leído la información y acepto participar voluntariamente.</span></label>
+    <p class="err" id="err-0" hidden>Debe aceptar para continuar.</p>
+  </div>
+  <footer class="card-foot"><button class="btn primary" data-next="1">Comenzar</button></footer>
+</section>
+
+<!-- PASO 1: Sociodemográficos -->
+<section class="step" id="step-1" aria-labelledby="t1">
+  <header class="card-head"><p class="kicker">Paso 1 de 6</p><h2 id="t1">Datos generales</h2></header>
+  <div class="card-body">
+    <div class="field"><label for="edad">Edad</label><input type="number" id="edad" min="17" max="35" inputmode="numeric" placeholder="17–35"></div>
+    <fieldset class="field"><legend>Sexo</legend>
+      <label class="radio"><input type="radio" name="sexo" value="1"><span>Masculino</span></label>
+      <label class="radio"><input type="radio" name="sexo" value="2"><span>Femenino</span></label>
+    </fieldset>
+    <fieldset class="field"><legend>Carrera</legend>
+      <label class="radio"><input type="radio" name="carrera" value="1"><span>Ingeniería Industrial</span></label>
+      <label class="radio"><input type="radio" name="carrera" value="2"><span>Sociología</span></label>
+      <label class="radio"><input type="radio" name="carrera" value="3"><span>Otra</span></label>
+    </fieldset>
+    <div class="field"><label for="ano">Año académico</label>
+      <select id="ano"><option value="">Seleccione…</option><option value="1">1ro</option><option value="2">2do</option><option value="3">3ro</option><option value="4">4to</option><option value="5">5to</option></select></div>
+    <fieldset class="field"><legend>¿Con qué frecuencia usa herramientas de IA?</legend>
+      <label class="radio"><input type="radio" name="uso" value="1"><span>Rara vez / Nunca</span></label>
+      <label class="radio"><input type="radio" name="uso" value="2"><span>1 a 2 veces por semana</span></label>
+      <label class="radio"><input type="radio" name="uso" value="3"><span>3 a 4 veces por semana</span></label>
+      <label class="radio"><input type="radio" name="uso" value="4"><span>5 o más veces por semana</span></label>
+    </fieldset>
+    <p class="err" id="err-1" hidden>Complete todos los campos para continuar.</p>
+  </div>
+  <footer class="card-foot"><button class="btn ghost" data-prev="0">Atrás</button><button class="btn primary" data-next="2">Continuar</button></footer>
+</section>
+
+<!-- Módulos generados por JS -->
+<div id="modules"></div>
+
+<!-- PASO final: cierre -->
+<section class="step" id="step-final" aria-labelledby="tf">
+  <header class="card-head"><p class="kicker">Final</p><h2 id="tf">Cuestionario completado</h2></header>
+  <div class="card-body">
+    <p>Gracias por su participación. Sus respuestas se han registrado de forma anónima.</p>
+    <p class="muted" id="send-status">Enviando…</p>
+  </div>
+  <footer class="card-foot"><button class="btn primary" id="btn-restart">Reiniciar</button></footer>
+</section>
+
+</main>
+
+<!-- Modal de pausa cognitiva -->
+<div class="modal-backdrop" id="modal-pausa" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mp-t">
+    <h3 id="mp-t">Una breve pausa</h3>
+    <p>Tomemos un respiro de 5 segundos. Evaluar cómo la IA influye en nuestros procesos requiere energía mental, y queremos que cada respuesta refleje bien su experiencia.</p>
+    <button class="btn primary" id="btn-pausa" disabled>Continuar (<span id="count">5</span>)</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
