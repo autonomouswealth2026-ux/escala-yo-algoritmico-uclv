@@ -1,42 +1,8 @@
 /* EYA-28 · Vanilla JS · offline-first · anti-satisficing */
 'use strict';
-/* ============ CONFIG: pegar aquí URL del Form e IDs entry ============ */
-const FORM_CFG = {
-  url: 'https://docs.google.com/forms/d/e/1FAIpQLSd5mNi5lrFzTDLYudFdA6kva2O6OsVJO4W2LCGwfRBuwN3GXg/formResponse',
-  entries: {
-    ID_SUJETO:'entry.32733786', EDAD:'entry.2141266918', SEXO:'entry.1194600799',
-    CARRERA:'entry.1333621513', ANO_ACADEMICO:'entry.417429680', USO_IA_FREQ:'entry.323386347',
-    RT_TOTAL_MS:'entry.909316935', FLAG_RAPIDEZ:'entry.1255009618', IMC_CONTROL:'entry.1975636848'
-  },
-    EYA_01:'entry.1191153712',
-    EYA_02:'entry.1970268648',
-    EYA_03:'entry.1984173565',
-    EYA_04:'entry.27891330',
-    EYA_05:'entry.40431054',
-    EYA_06:'entry.2096847571',
-    EYA_07:'entry.2032357802',
-    EYA_08:'entry.1461845445',
-    EYA_09:'entry.266798274',
-    EYA_10:'entry.232667858',
-    EYA_11:'entry.198926876',
-    EYA_12:'entry.1008495806',
-    EYA_13:'entry.1969050253',
-    EYA_14:'entry.203634659',
-    EYA_15:'entry.1998958264',
-    EYA_16:'entry.746806658',
-    EYA_17:'entry.763146196',
-    EYA_18:'entry.391511062',
-    EYA_19:'entry.1940793887',
-    EYA_20:'entry.862694786',
-    EYA_21:'entry.750974014',
-    EYA_22:'entry.470700512',
-    EYA_23:'entry.1179412517',
-    EYA_24:'entry.1445838047',
-    EYA_25:'entry.750132894',
-    EYA_26:'entry.436813686',
-    EYA_27:'entry.748016925',
-    EYA_28:'entry.932565156'
-};
+/* ============ CONFIG: URL del webhook (Google Apps Script) ============ */
+const WEBHOOK_URL = 'PEGAR_URL_DEL_DESPLIEGUE_AQUI';
+
 /* ============ Banco de reactivos ============ */
 const LIKERT = [
   ['1', 'Totalmente en\ndesacuerdo'], ['2', 'En\ndesacuerdo'], ['3', 'Neutral /\nIndeciso'],
@@ -236,17 +202,17 @@ function finish() {
 }
 function send(payload) {
   const st = document.getElementById('send-status');
-  if (!FORM_CFG.url.includes('PEGAR_FORM_ID')) {
-    const fd = new FormData();
-    for (const k in payload) {
-      const entry = FORM_CFG.entries[k];
-      if (entry) fd.append(entry, payload[k]);
-    }
-    fetch(FORM_CFG.url, { method: 'POST', mode: 'no-cors', body: fd })
+  if (!WEBHOOK_URL.includes('PEGAR_URL')) {
+    fetch(WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
       .then(() => { st.textContent = 'Respuestas enviadas correctamente.'; })
       .catch(() => { st.textContent = 'Sin conexión: sus respuestas quedaron guardadas localmente.'; });
   } else {
-    st.textContent = 'Modo demostración: configure el Google Form en app.js para activar el envío.';
+    st.textContent = 'Modo demostración: configure el webhook en app.js para activar el envío.';
     console.log('[EYA-28] payload (demo):', payload);
   }
 }
