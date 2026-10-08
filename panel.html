@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EYA-28 · Panel del investigador</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+.panel-wrap{max-width:900px;margin:0 auto}
+table.res{width:100%;border-collapse:collapse;font-size:.85rem;margin:.8rem 0}
+table.res th,table.res td{border:1px solid var(--line);padding:.35rem .5rem;text-align:right}
+table.res th:first-child,table.res td:first-child{text-align:left}
+table.res th{background:#eef6f7}
+.badge{display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.8rem;font-weight:600}
+.badge.ok{background:#d7efe2;color:#14532d}
+.badge.bad{background:#fbe3e1;color:#7f1d1d}
+textarea.code{width:100%;min-height:120px;font-family:monospace;font-size:.8rem;padding:.6rem;border:1.5px solid var(--line);border-radius:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+.sec{margin-bottom:1.6rem}
+.sec h3{margin-bottom:.5rem;color:var(--acc)}
+</style>
+</head>
+<body>
+<main id="app"><div class="panel-wrap">
+
+<section class="step active" id="p-load">
+  <header class="card-head">
+    <p class="kicker">EYA-28 · Uso interno del equipo investigador</p>
+    <h1>Panel del investigador</h1>
+  </header>
+  <div class="card-body">
+    <p>Este panel replica <strong>todo el procesamiento de la sintaxis SPSS</strong> directamente en el navegador: importa respuestas, recodifica ítems invertidos, calcula subescalas, aplica filtros de calidad, estima fiabilidad (α de Cronbach) y genera descriptivos — sin necesidad de SPSS.</p>
+    <div class="field">
+      <label for="csv-url">URL del CSV publicado de Google Sheets</label>
+      <input type="url" id="csv-url" placeholder="https://docs.google.com/spreadsheets/d/…/export?format=csv" style="width:100%;min-height:52px;padding:.6rem .8rem;font-size:.9rem;border:1.5px solid var(--line);border-radius:10px">
+      <p class="muted">En Google Sheets: Archivo → Compartir → Publicar en la web → formato CSV.</p>
+    </div>
+    <div class="field">
+      <label for="csv-file">…o cargue un archivo CSV</label>
+      <input type="file" id="csv-file" accept=".csv">
+    </div>
+    <p class="err" id="p-err" hidden></p>
+  </div>
+  <footer class="card-foot">
+    <button class="btn primary" id="btn-procesar">Procesar datos</button>
+  </footer>
+</section>
+
+<section class="step" id="p-results">
+  <header class="card-head">
+    <p class="kicker">Resultados del procesamiento</p>
+    <h1 id="p-title">Base procesada</h1>
+  </header>
+  <div id="p-out"></div>
+  <footer class="card-foot">
+    <button class="btn ghost" id="btn-volver">Volver</button>
+    <button class="btn primary" id="btn-csv">Descargar CSV limpio</button>
+    <button class="btn primary" id="btn-sps">Descargar sintaxis .sps</button>
+  </footer>
+</section>
+
+</div></main>
+<script src="panel.js"></script>
+</body>
+</html>
