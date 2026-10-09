@@ -54,28 +54,35 @@ function svgHistogram(values, title, bins) {
   return svgBase(W, H, s);
 }
 
+function svgTextMultiline(x, y, text, o) {
+  // Divide etiquetas largas en 2 líneas para SVG
+  o = o || {};
+  const words = String(text).split(' ');
+  if (text.length <= 22 || words.length < 2) return svgText(x, y, text, o);
+  const mid = Math.ceil(words.length / 2);
+  const l1 = words.slice(0, mid).join(' '), l2 = words.slice(mid).join(' ');
+  const fs = o.fs || 11;
+  return `<text x="${x}" y="${y - fs * 0.6}" font-size="${fs}" fill="${o.fill || '#1E293B'}" text-anchor="${o.a || 'middle'}">${l1}</text>` +
+    `<text x="${x}" y="${y + fs * 0.7}" font-size="${fs}" fill="${o.fill || '#1E293B'}" text-anchor="${o.a || 'middle'}">${l2}</text>`;
+}
 /* ---------- Diagrama de barras (categóricas) ---------- */
 function svgBar(cats, title) {
   // cats: [[etiqueta, n],...]
   if (!cats.length) return '<p class="muted">Sin datos</p>';
   const cmax = Math.max(...cats.map(c => c[1]));
-  const W = 480, H = Math.max(300, 80 + cats.length * 64), ml = 150, mb = 30, mt = 34, mr = 52;
+  const W = 480, H = Math.max(320, 100 + cats.length * 72), ml = 150, mb = 30, mt = 34, mr = 52;
   const pw = W - ml - mr, ph = H - mt - mb;
   const rowH = ph / cats.length;
-  const bh = Math.min(34, rowH - 14);
+  const bh = Math.min(34, rowH - 16);
   let s = svgText(W / 2, 20, title, { b: 1, fs: 13 });
   s += `<line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt + ph}" stroke="#64748B"/>`;
   s += `<line x1="${ml}" y1="${mt + ph}" x2="${ml + pw}" y2="${mt + ph}" stroke="#64748B"/>`;
   cats.forEach((c, i) => {
     const y = mt + (rowH - bh) / 2 + i * rowH;
     const bw = Math.max(2, pw * c[1] / cmax);
-    // Etiqueta con ajuste: abreviar solo si excede el espacio
-    let lab = String(c[0]);
-    const maxChars = 20;
-    if (lab.length > maxChars) lab = lab.slice(0, maxChars - 1) + '…';
-    s += svgText(ml - 8, y + bh / 2 + 4, lab, { a: 'end', fs: 11 });
+    // Etiqueta completa con salto de línea si es necesario (nunca cortada)
+    s += svgTextMultiline(ml - 8, y + bh / 2 + 4, String(c[0]), { a: 'end', fs: 11 });
     s += `<rect x="${ml}" y="${y}" width="${bw.toFixed(1)}" height="${bh}" fill="#2563EB" opacity="0.85" rx="3"><title>${c[0]}: ${c[1]}</title></rect>`;
-    // Valor: dentro de la barra si hay espacio, fuera si no — nunca cortado
     const valStr = String(c[1]);
     if (bw > 44) {
       s += svgText(ml + bw - 8, y + bh / 2 + 4, valStr, { a: 'end', fs: 10, fill: '#FFFFFF', b: 1 });
