@@ -131,11 +131,43 @@ function bartlett(R, n) {
   const df = p * (p - 1) / 2;
   return { chi2, df, p: chi2P(chi2, df) };
 }
-// p-valor chi-cuadrado (aproximación Wilson-Hilferty)
+// p-valor chi-cuadrado EXACTO vía gamma incompleta regularizada
+// P(χ² > x) = 1 - γ(k/2, x/2)/Γ(k/2), k = gl
 function chi2P(chi2, df) {
-  if (df <= 0 || isNaN(chi2)) return NaN;
-  const z = Math.sqrt(2 * chi2) - Math.sqrt(2 * df - 1);
-  return 1 - normalCDF(z);
+  if (df <= 0 || isNaN(chi2) || chi2 < 0) return NaN;
+  if (chi2 === 0) return 1;
+  return 1 - gammaP(df / 2, chi2 / 2);
+}
+// γ(s,x)/Γ(s): gamma incompleta inferior regularizada (expansión en serie)
+function gammaP(s, x) {
+  if (x <= 0) return 0;
+  if (x < s + 1) {
+    // Serie
+    let term = 1 / s, sum = term, n = 1;
+    for (; n < 500; n++) {
+      term *= x / (s + n);
+      sum += term;
+      if (Math.abs(term) < Math.abs(sum) * 1e-15) break;
+    }
+    return sum * Math.exp(-x + s * Math.log(x) - lgamma(s));
+  }
+  // Fracción continua para Q(s,x), luego P = 1 - Q
+  return 1 - gammaQ(s, x);
+}
+function gammaQ(s, x) {
+  const EPS = 1e-15, FPMIN = 1e-300;
+  let b = x + 1 - s, c = 1 / FPMIN, d = 1 / b, h = d;
+  for (let i = 1; i < 500; i++) {
+    const an = -i * (i - s);
+    b += 2;
+    d = an * d + b; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = b + an / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d;
+    const del = d * c;
+    h *= del;
+    if (Math.abs(del - 1) < EPS) break;
+  }
+  return Math.exp(-x + s * Math.log(x) - lgamma(s)) * h;
 }
 function normalCDF(z) {
   const t = 1 / (1 + 0.2316419 * Math.abs(z));
@@ -143,7 +175,8 @@ function normalCDF(z) {
   const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
   return z > 0 ? 1 - p : p;
 }
-// p-valor t (aproximación)
+// p-valor t BILATERAL: P(|T| > |t|) = I_{df/(df+t²)}(df/2, 1/2)
+// Ya es bilateral; NO envolver en 2*(1-...)
 function tP(t, df) {
   if (df <= 0 || isNaN(t)) return NaN;
   const x = df / (df + t * t);
@@ -331,7 +364,7 @@ function tTestInd(a, b) {
   const t = (ma - mb) / Math.sqrt(sp2 * (1 / na + 1 / nb));
   const df = na + nb - 2;
   const d = (ma - mb) / Math.sqrt(sp2); // Cohen d
-  return { t, df, p: 2 * (1 - tP(Math.abs(t), df)), d, ma, mb };
+  return { t, df, p: tP(t, df), d, ma, mb };
 }
 // ANOVA unifactorial
 function anovaOneWay(groups) {
@@ -458,7 +491,7 @@ function regression(X, y) {
   const mse = sse / (n - p - 1);
   const se = inv.map((r, i) => Math.sqrt(Math.max(r[i] * mse, 0)));
   const tvals = beta.map((b, i) => se[i] > 0 ? b / se[i] : 0);
-  const pvals = tvals.map(t => 2 * (1 - tP(Math.abs(t), n - p - 1)));
+  const pvals = tvals.map(t => tP(t, n - p - 1));
   const F = (r2 / p) / ((1 - r2) / (n - p - 1));
   return { beta, se, t: tvals, p: pvals, r2, r2adj, F, n, p: p + 1 };
 }
