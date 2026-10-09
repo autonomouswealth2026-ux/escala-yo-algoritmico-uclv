@@ -145,7 +145,7 @@ function validateStep(n) {
     document.getElementById('err-1').hidden = ok;
     if (ok) {
       S.demo = { EDAD: edad, SEXO: sexo.value, CARRERA: carrera.value, ANO_ACADEMICO: ano, USO_IA_FREQ: uso.value };
-      if (!S.t0) S.t0 = performance.now();
+      if (!S.t0) S.t0 = Date.now();
       save();
     }
     return ok;
@@ -187,34 +187,70 @@ function showPause() {
   }, 1000);
   btn.onclick = () => { mb.hidden = true; };
 }
-/* ============ Finalizar + envío ============ */
+/* ============ Finalizar + envío con cola persistente ============ */
+const PENDING_KEY = 'eya28_pending_v1';
+function getPending() { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch (e) { return []; } }
+function setPending(a) { try { localStorage.setItem(PENDING_KEY, JSON.stringify(a)); } catch (e) {} }
+function sendPayload(payload) {
+  if (WEBHOOK_URL.includes('PEGAR_URL')) return Promise.resolve(true); // modo demo
+  return fetch(WEBHOOK_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(() => true).catch(() => false);
+}
+function updatePendingUI(n) {
+  const st = document.getElementById('send-status');
+  const rb = document.getElementById('btn-retry');
+  if (n > 0) {
+    st.innerHTML = 'Sin conexión: tiene <b>' + n + '</b> respuesta(s) en cola. Se enviarán automáticamente al recuperar la conexión.';
+    st.className = 'warn';
+    if (rb) rb.hidden = false;
+  } else {
+    st.textContent = 'Respuestas enviadas correctamente.';
+    st.className = 'ok';
+    if (rb) rb.hidden = true;
+  }
+}
+function flushPending() {
+  const pending = getPending();
+  if (!pending.length) { updatePendingUI(0); return; }
+  updatePendingUI(pending.length);
+  const remaining = [];
+  let chain = Promise.resolve();
+  pending.forEach(item => {
+    chain = chain.then(() =>
+      sendPayload(item.payload).then(ok => {
+        item.attempts = (item.attempts || 0) + 1;
+        if (!ok) remaining.push(item);
+      })
+    );
+  });
+  chain.then(() => {
+    setPending(remaining);
+    updatePendingUI(remaining.length);
+    if (!remaining.length) {
+      // Todo enviado: ahora sí limpiar el estado en curso
+      localStorage.removeItem(LS_KEY);
+    }
+  });
+}
 function finish() {
   S.done = true;
-  const rtTotal = S.t0 ? Math.round(performance.now() - S.t0) : 0;
+  const rtTotal = S.t0 ? Math.round(Date.now() - S.t0) : 0;
   const imc = S.ans['EYA_15'] === '1' ? 1 : 0;
   const payload = Object.assign({
     ID_SUJETO: S.id, RT_TOTAL_MS: rtTotal, FLAG_RAPIDEZ: S.flagRapidez, IMC_CONTROL: imc
   }, S.demo, S.ans);
-  save();
+  // Encolar ANTES de intentar enviar: si falla la red, nada se pierde
+  const pending = getPending();
+  pending.push({ payload: payload, ts: Date.now(), attempts: 0 });
+  setPending(pending);
+  save(); // S.done=true: al reabrir verá la pantalla final, no el inicio
   goto('step-final');
-  send(payload);
-  localStorage.removeItem(LS_KEY); // limpiar tras envío
-}
-function send(payload) {
-  const st = document.getElementById('send-status');
-  if (!WEBHOOK_URL.includes('PEGAR_URL')) {
-    fetch(WEBHOOK_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-      .then(() => { st.textContent = 'Respuestas enviadas correctamente.'; })
-      .catch(() => { st.textContent = 'Sin conexión: sus respuestas quedaron guardadas localmente.'; });
-  } else {
-    st.textContent = 'Modo demostración: configure el webhook en app.js para activar el envío.';
-    console.log('[EYA-28] payload (demo):', payload);
-  }
+  flushPending();
+  // YA NO se borra LS_KEY aquí: solo tras envío confirmado
 }
 /* ============ Restaurar estado ============ */
 function restoreDemo() {
@@ -230,6 +266,14 @@ function restoreDemo() {
 /* ============ Init ============ */
 renderModules();
 restoreDemo();
-if (S.done) { goto('step-final'); }
+// Reintento manual
+document.getElementById('btn-retry').addEventListener('click', flushPending);
+// Reintento automático al recuperar conexión
+window.addEventListener('online', () => { if (getPending().length) flushPending(); });
+// Al abrir: si hay envíos pendientes, intentar de inmediato
+if (getPending().length) {
+  if (S.done) goto('step-final');
+  flushPending();
+} else if (S.done) { goto('step-final'); updatePendingUI(0); }
 else if (S.step && document.getElementById(S.step)) { goto(S.step); }
 else { goto('step-0'); }
