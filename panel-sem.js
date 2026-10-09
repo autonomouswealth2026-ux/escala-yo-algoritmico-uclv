@@ -368,11 +368,13 @@ function renderSEM(validos) {
 if (typeof window !== 'undefined') {
   window.__cfaData = null;
   window.__runCfaMlp = function() {
-    // CFA automático
+    // CFA automático (adaptativo: menos iteraciones en muestras grandes)
     setTimeout(function() {
       try {
         const validos = window.__cfaValid;
         if (!validos || !validos.length) return;
+        const n = validos.length;
+        const cfaIter = n > 2000 ? 30 : 120; // adaptativo
         const cols27 = [];
         for (let i = 1; i <= 28; i++) {
           if (i === 15) continue;
@@ -383,7 +385,7 @@ if (typeof window !== 'undefined') {
         const S = corrMatrix(data27);
         const vars = cols27.map((k, j) => variance(data27.map(r => r[j])));
         const Scov = S.map((r, i) => r.map((val, j) => val * Math.sqrt(vars[i] * vars[j])));
-        const cfa = cfaEstimate(Scov, validos.length, 120, 0.005);
+        const cfa = cfaEstimate(Scov, n, cfaIter, 0.005);
         const fit = cfa.cfi >= 0.95 && cfa.rmsea <= 0.08 ? 'ok' : 'bad';
         let rh = '<div class="card-body"><h4>Índices de ajuste</h4>';
         rh += tabla(['Índice', 'Valor', 'Criterio'],
@@ -404,30 +406,40 @@ if (typeof window !== 'undefined') {
         if (cr) cr.innerHTML = '<p class="err">Error en CFA: ' + err.message + '</p>';
       }
     }, 200);
-    // MLP automático
+    // MLP automático (adaptativo: submuestra en n grande)
     setTimeout(function() {
       try {
         const validos = window.__cfaValid;
         if (!validos || !validos.length) return;
-        const X = validos.map(c => [c.EDAD, c.SEXO, c.CARRERA, c.ANO_ACADEMICO, c.USO_IA_FREQ, c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]);
-        const y = validos.map(c => [c.EYA_TOTAL]);
+        const n = validos.length;
+        // Submuestra para entrenamiento en muestras grandes
+        let sample = validos;
+        let epochs = 250;
+        if (n > 2000) {
+          sample = [];
+          const step = n / 500;
+          for (let i = 0; i < 500; i++) sample.push(validos[Math.floor(i * step)]);
+          epochs = 80;
+        }
+        const X = sample.map(c => [c.EDAD, c.SEXO, c.CARRERA, c.ANO_ACADEMICO, c.USO_IA_FREQ, c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]);
+        const y = sample.map(c => [c.EYA_TOTAL]);
         const nrm = normalizeData(X);
         const ymin = Math.min(...y.flat()), ymax = Math.max(...y.flat());
         const Yn = y.map(r => [(r[0] - ymin) / (ymax - ymin)]);
         const mlp = new MLP([9, 12, 6, 1], 0.05);
-        mlp.train(nrm.Xn, Yn, 250);
+        mlp.train(nrm.Xn, Yn, epochs);
         const pred = mlp.predict(nrm.Xn).map(p => p[0] * (ymax - ymin) + ymin);
         const act = y.map(r => r[0]);
         const r2 = 1 - pred.reduce((s, p, i) => s + (p - act[i]) ** 2, 0) / act.reduce((s, a) => s + (a - vecMean(act)) ** 2, 0);
         const ms = document.getElementById('mlp-status');
-        if (ms) ms.innerHTML = '<p class="muted">Red entrenada.</p>';
+        if (ms) ms.innerHTML = '<p class="muted">Red entrenada' + (n > 2000 ? ' (submuestra n=500)' : '') + '.</p>';
         const mr = document.getElementById('mlp-result');
         if (mr) mr.innerHTML =
-          `R² = <strong>${f2(Math.max(r2, 0))}</strong> <span class="muted">(red [9→12→6→1], 250 épocas)</span>`;
+          `R² = <strong>${f2(Math.max(r2, 0))}</strong> <span class="muted">(red [9→12→6→1], ${epochs} épocas)</span>`;
       } catch (err) {
         const ms = document.getElementById('mlp-status');
         if (ms) ms.innerHTML = '<p class="err">Error: ' + err.message + '</p>';
       }
-    }, 400);
+    }, 2500);
   };
 }
