@@ -525,31 +525,51 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
 document.getElementById('btn-pdf').addEventListener('click', () => {
   const btn = document.getElementById('btn-pdf');
   btn.textContent = 'Preparando…';
-  // Asegurar que todo el contenido esté visible para impresión
-  document.body.classList.add('printing-report');
-  setTimeout(() => {
-    try {
-      window.print();
-    } catch (e) {
-      alert('No se pudo abrir el diálogo de impresión: ' + e.message);
+  // Generar vista de impresión ligera desde el informe de texto
+  try {
+    const txt = buildTextReport();
+    const title = document.getElementById('p-title').textContent;
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert('Permite ventanas emergentes para generar el PDF');
+      btn.textContent = 'Descargar PDF';
+      return;
     }
-    btn.textContent = 'Descargar PDF';
-    setTimeout(() => document.body.classList.remove('printing-report'), 1000);
-  }, 300);
+    const htmlBody = txt.split('\n').map(line => {
+      if (!line.trim()) return '<p></p>';
+      if (line.match(/^=+$/) || line.match(/^-+$/)) return '';
+      if (line === line.toUpperCase() && line.length > 3 && !line.includes(':') && isNaN(parseFloat(line))) {
+        return '<h3>' + line.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</h3>';
+      }
+      return '<p>' + line.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</p>';
+    }).join('\n');
+    printWin.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe EYA-28</title>' +
+      '<style>body{font-family:Arial,sans-serif;font-size:11pt;margin:40px}h1{color:#1E293B}h3{color:#2563EB;border-bottom:2px solid #2563EB;padding-bottom:4px;margin-top:24px}p{margin:4px 0;white-space:pre-wrap}</style>' +
+      '</head><body><h1>Informe EYA-28</h1><p>' + title + ' · ' + new Date().toLocaleString('es-ES') + '</p>' +
+      htmlBody + '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<\/script></body></html>');
+    printWin.document.close();
+  } catch (e) {
+    alert('Error al generar PDF: ' + e.message);
+  }
+  btn.textContent = 'Descargar PDF';
 });
-/* ---------- descargar Word (.doc y .docx) ---------- */
+/* ---------- descargar Word (.doc y .docx) — VERSIÓN LIGERA ---------- */
 function wordHtmlContent() {
-  const host = document.getElementById('p-out');
+  // Genera el documento desde el informe de texto (ligero, sin clonar DOM)
   const title = document.getElementById('p-title').textContent;
-  let html = '<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt}h3{color:#1E293B;border-bottom:2px solid #2563EB;padding-bottom:4px}h4{color:#2563EB}table{border-collapse:collapse;margin:8px 0;width:100%}th,td{border:1px solid #94A3B8;padding:4px 8px;text-align:left;font-size:10pt}th{background:#EFF6FF}.muted{color:#64748B;font-size:10pt}.badge{padding:2px 6px;border-radius:4px}.badge.ok{background:#DCFCE7}.badge.bad{background:#FEE2E2}</style>';
-  html += '<h1>Informe EYA-28</h1><p>' + title + ' · Generado: ' + new Date().toLocaleString('es-ES') + '</p>';
-  const clone = host.cloneNode(true);
-  clone.querySelectorAll('svg').forEach(svg => {
-    const p = document.createElement('p');
-    p.innerHTML = '<i>[Gráfico: ' + (svg.querySelector('text') ? svg.querySelector('text').textContent : 'visualización') + ' — ver en el panel web]</i>';
-    svg.replaceWith(p);
-  });
-  return html + clone.innerHTML;
+  const txt = buildTextReport();
+  // Convertir texto plano a HTML simple
+  const htmlBody = txt.split('\n').map(line => {
+    if (!line.trim()) return '<p></p>';
+    if (line.match(/^=+$/) || line.match(/^-+$/)) return '';
+    if (line === line.toUpperCase() && line.length > 3 && !line.includes(':')) {
+      return '<h3>' + escXml(line) + '</h3>';
+    }
+    return '<p>' + escXml(line) + '</p>';
+  }).join('\n');
+  let html = '<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt}h3{color:#1E293B;border-bottom:2px solid #2563EB;padding-bottom:4px}p{margin:4px 0}</style>';
+  html += '<h1>Informe EYA-28</h1><p>' + escXml(title) + ' · Generado: ' + new Date().toLocaleString('es-ES') + '</p>';
+  return html + htmlBody;
 }
 // ZIP mínimo (almacenado, sin compresión) para .docx
 function crc32(str) {
