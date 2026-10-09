@@ -173,15 +173,24 @@ function cfaEstimate(S, n, maxIter = 300, lr = 0.01) {
 /* ================================================================
    2. RED NEURONAL MLP (perceptrón multicapa con backpropagation)
    ================================================================ */
+/* Generador pseudoaleatorio con semilla (reproducibilidad científica) */
+function seededRandom(seed) {
+  let s = seed >>> 0;
+  return function() {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
 class MLP {
-  constructor(layers, lr = 0.01) {
+  constructor(layers, lr = 0.01, seed = 42) {
     this.layers = layers; this.lr = lr;
     this.W = []; this.b = [];
+    const rand = seededRandom(seed);
     for (let l = 0; l < layers.length - 1; l++) {
       const fanIn = layers[l], fanOut = layers[l + 1];
       const scale = Math.sqrt(2 / fanIn);
       this.W.push(Array.from({length: fanOut}, () =>
-        Array.from({length: fanIn}, () => (Math.random() * 2 - 1) * scale)));
+        Array.from({length: fanIn}, () => (rand() * 2 - 1) * scale)));
       this.b.push(new Array(fanOut).fill(0));
     }
   }
