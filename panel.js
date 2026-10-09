@@ -45,6 +45,36 @@ function pearson(x, y) {
   return den === 0 ? NaN : num / den;
 }
 
+// Spearman: correlación de Pearson aplicada a rangos promedio.
+// Los empates reciben el rango medio de sus posiciones, como en SPSS.
+function averageRanks(values) {
+  const indexed = values.map((value, index) => ({ value, index }))
+    .sort((a, b) => a.value - b.value || a.index - b.index);
+  const ranks = Array(values.length);
+  for (let i = 0; i < indexed.length;) {
+    let j = i + 1;
+    while (j < indexed.length && indexed[j].value === indexed[i].value) j++;
+    const averageRank = ((i + 1) + j) / 2; // posiciones 1..n
+    for (let k = i; k < j; k++) ranks[indexed[k].index] = averageRank;
+    i = j;
+  }
+  return ranks;
+}
+
+function spearman(x, y) {
+  if (!Array.isArray(x) || !Array.isArray(y) || x.length !== y.length) return NaN;
+  const pairs = [];
+  for (let i = 0; i < x.length; i++) {
+    if (x[i] == null || y[i] == null || x[i] === '' || y[i] === '') continue;
+    const xi = Number(x[i]), yi = Number(y[i]);
+    if (Number.isFinite(xi) && Number.isFinite(yi)) pairs.push([xi, yi]);
+  }
+  if (pairs.length < 2) return NaN;
+  const rx = averageRanks(pairs.map(p => p[0]));
+  const ry = averageRanks(pairs.map(p => p[1]));
+  return pearson(rx, ry);
+}
+
 /* ---------- parseo CSV ---------- */
 function parseCSV(text) {
   const rows = [];
@@ -313,6 +343,15 @@ function render(db) {
   );
   h += `<div class="sec"><h3>Correlaciones entre subescalas (Pearson)</h3>` +
     tabla([''].concat(escKeys.map(k => k.split('_')[0])), corrRows) + `</div>`;
+
+  const spearRows = escKeys.map(a =>
+    [a.replace('_', ' ')].concat(escKeys.map(b => {
+      const rho = spearman(validos.map(c => c[a]), validos.map(c => c[b]));
+      return isNaN(rho) ? '—' : f2(rho);
+    }))
+  );
+  h += `<div class="sec"><h3>Correlaciones entre subescalas (Spearman, rangos promedio para empates)</h3>` +
+    tabla([''].concat(escKeys.map(k => k.split('_')[0])), spearRows) + `</div>`;
 
   // Frecuencias demográficas
   ['SEXO', 'CARRERA', 'ANO_ACADEMICO', 'USO_IA_FREQ'].forEach(d => {
