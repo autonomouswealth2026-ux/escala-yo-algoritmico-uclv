@@ -119,9 +119,10 @@ function kmo(R) {
       r2 += R[i][j] * R[i][j]; q2 += pij * pij;
       sumR2 += R[i][j] * R[i][j]; sumP2 += pij * pij;
     }
-    msa.push(r2 / (r2 + q2));
+    msa.push((r2 + q2) > 0 ? r2 / (r2 + q2) : 0.5);
   }
-  return { global: sumR2 / (sumR2 + sumP2), msa };
+  const denom = sumR2 + sumP2;
+  return { global: denom > 0 ? sumR2 / denom : 0.5, msa };
 }
 function bartlett(R, n) {
   const p = R.length;
@@ -179,8 +180,30 @@ function normalCDF(z) {
 // Ya es bilateral; NO envolver en 2*(1-...)
 function tP(t, df) {
   if (df <= 0 || isNaN(t)) return NaN;
+  if (t === 0) return 1;
   const x = df / (df + t * t);
   return ibeta(x, df / 2, 0.5);
+}
+// Integración numérica directa de la densidad t (Simpson adaptativo) — referencia robusta
+function tP_numeric(t, df) {
+  const at = Math.abs(t);
+  // Densidad t: f(x) = Γ((df+1)/2) / (√(df·π)·Γ(df/2)) · (1+x²/df)^(-(df+1)/2)
+  const c = Math.exp(lgamma((df + 1) / 2) - lgamma(df / 2)) / Math.sqrt(df * Math.PI);
+  const f = x => c * Math.pow(1 + x * x / df, -(df + 1) / 2);
+  // Integrar de |t| a ∞ con cambio de variable u=1/(1+x) para cola infinita
+  // ∫_at^∞ f = ∫_0^{1/(1+at)} f((1-u)/u) / u² du
+  const upper = 1 / (1 + at);
+  const g = u => {
+    if (u <= 0) return 0;
+    const x = (1 - u) / u;
+    return f(x) / (u * u);
+  };
+  const N = 2000;
+  const hstep = upper / N;
+  let sum = g(0) + g(upper);
+  for (let i = 1; i < N; i++) sum += (i % 2 === 0 ? 2 : 4) * g(i * hstep);
+  const tail = sum * hstep / 3;
+  return Math.min(2 * tail, 1);
 }
 // Función beta incompleta regularizada (aprox. por fracción continua)
 function ibeta(x, a, b) {
@@ -190,7 +213,7 @@ function ibeta(x, a, b) {
   return 1 - bt * betacf(1 - x, b, a) / b;
 }
 function betacf(x, a, b) {
-  const MAXIT = 200, EPS = 3e-12, FPMIN = 1e-300;
+  const MAXIT = 500, EPS = 1e-15, FPMIN = 1e-300;
   let qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
   if (Math.abs(d) < FPMIN) d = FPMIN;
   d = 1 / d; let h = d;
@@ -235,40 +258,51 @@ function pca(R, nFactors) {
   return { eigenvalues: values, loadings, communalities, varExplained, totalVar: values.slice(0, k).reduce((s, v) => s + v, 0) / p * 100 };
 }
 
-/* ---------- Rotación Varimax (Kaiser) ---------- */
+/* ---------- Rotación Varimax (criterio de Kaiser, 1958) ----------
+   Maximiza V = Σ_f [ Σ_i a_if⁴ − (Σ_i a_if²)²/p ] por rotaciones planas.
+   Para cada par (f1,f2): tan(4φ) = (D − 2AB/p) / (C − (A²−B²)/p)
+   donde u=a²−b², v=2ab, A=Σu, B=Σv, C=Σ(u²−v²), D=2Σ(uv). */
 function varimax(L, maxIter = 100) {
   const p = L.length, k = L[0].length;
   let A = L.map(r => r.slice());
   for (let iter = 0; iter < maxIter; iter++) {
-    let converged = true;
+    let maxPhi = 0;
     for (let f1 = 0; f1 < k - 1; f1++) for (let f2 = f1 + 1; f2 < k; f2++) {
-      let u = 0, v = 0;
-      const x = [], y = [];
+      let sA = 0, sB = 0, sC = 0, sD = 0;
       for (let i = 0; i < p; i++) {
         const a = A[i][f1], b = A[i][f2];
-        const h2 = a * a + b * b;
-        x.push(a * a - b * b); y.push(2 * a * b);
-        u += x[i]; v += y[i];
+        const u = a * a - b * b, v = 2 * a * b;
+        sA += u; sB += v;
+        sC += u * u - v * v;
+        sD += 2 * u * v;
       }
-      const num = v - 2 * u * v / p;
-      const den = 0; // simplificado
-      let angle = 0;
-      // Cálculo del ángulo óptimo
-      let s1 = 0, c1 = 0;
-      for (let i = 0; i < p; i++) { s1 += y[i]; c1 += x[i]; }
-      const phi = Math.atan2(2 * s1, 2 * c1) / 4;
-      if (Math.abs(phi) > 1e-10) {
-        converged = false;
+      const num = sD - 2 * sA * sB / p;
+      const den = sC - (sA * sA - sB * sB) / p;
+      const phi = Math.atan2(num, den) / 4;
+      maxPhi = Math.max(maxPhi, Math.abs(phi));
+      if (Math.abs(phi) > 1e-12) {
         const c = Math.cos(phi), s = Math.sin(phi);
         for (let i = 0; i < p; i++) {
           const a = A[i][f1], b = A[i][f2];
-          A[i][f1] = a * c + b * s; A[i][f2] = -a * s + b * c;
+          A[i][f1] = a * c + b * s;
+          A[i][f2] = -a * s + b * c;
         }
       }
     }
-    if (converged) break;
+    if (maxPhi < 1e-10) break;
   }
   return A;
+}
+// Criterio V de Kaiser (para verificación)
+function varimaxCriterion(A) {
+  const p = A.length, k = A[0].length;
+  let V = 0;
+  for (let f = 0; f < k; f++) {
+    let s2 = 0, s4 = 0;
+    for (let i = 0; i < p; i++) { const b2 = A[i][f] * A[i][f]; s2 += b2; s4 += b2 * b2; }
+    V += s4 - s2 * s2 / p;
+  }
+  return V;
 }
 
 /* ---------- PAF (Principal Axis Factoring) ---------- */
@@ -493,7 +527,7 @@ function regression(X, y) {
   const tvals = beta.map((b, i) => se[i] > 0 ? b / se[i] : 0);
   const pvals = tvals.map(t => tP(t, n - p - 1));
   const F = (r2 / p) / ((1 - r2) / (n - p - 1));
-  return { beta, se, t: tvals, p: pvals, r2, r2adj, F, n, p: p + 1 };
+  return { beta, se, t: tvals, pvals, r2, r2adj, F, n, nPar: p + 1 };
 }
 
 /* ---------- Correlación de distancia (Székely) ---------- */
