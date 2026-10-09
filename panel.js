@@ -453,6 +453,25 @@ async function cargar() {
 }
 
 document.getElementById('btn-procesar').addEventListener('click', cargar);
+document.getElementById('btn-demo').addEventListener('click', async () => {
+  const err = document.getElementById('p-err');
+  err.hidden = true;
+  const btn = document.getElementById('btn-demo');
+  btn.disabled = true; btn.textContent = 'Cargando demo…';
+  try {
+    const r = await fetch('demo5000.csv');
+    if (!r.ok) throw new Error('No se pudo cargar la demo (HTTP ' + r.status + ').');
+    const text = await r.text();
+    const rows = parseCSV(text);
+    DB = procesar(rows);
+    render(DB);
+    mostrar('p-results');
+  } catch (e) {
+    err.textContent = e.message;
+    err.hidden = false;
+  }
+  btn.disabled = false; btn.textContent = 'Cargar datos demo (n=5000)';
+});
 document.getElementById('btn-volver').addEventListener('click', () => mostrar('p-load'));
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', exportSPS);
