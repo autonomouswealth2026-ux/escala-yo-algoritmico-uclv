@@ -417,17 +417,44 @@ if (typeof window !== 'undefined') {
     try {
       const worker = new Worker('panel-worker.js');
       let done = 0;
+      let cfaDone = false, mlpDone = false;
+      // Timeout de seguridad: 120 segundos
+      const timeoutId = setTimeout(() => {
+        if (!cfaDone) {
+          const cs = document.getElementById('cfa-status');
+          if (cs) cs.innerHTML = '<p class="err">El CFA está tardando demasiado (>2 min). <button class="btn ghost" onclick="window.__retryCfa()">Reintentar con estimación rápida</button></p>';
+        }
+        if (!mlpDone) {
+          const ms = document.getElementById('mlp-status');
+          if (ms) ms.innerHTML = '<p class="err">El MLP está tardando demasiado.</p>';
+        }
+      }, 120000);
+      // Función de reintento rápido para CFA
+      window.__retryCfa = function() {
+        const cs = document.getElementById('cfa-status');
+        if (cs) cs.innerHTML = '<p class="muted">Estimación rápida (50 iteraciones)…</p>';
+        setTimeout(() => {
+          try {
+            const cfa = cfaEstimate(Scov, n, 50, 0.01);
+            showCfa(cfa);
+            cfaDone = true;
+          } catch (e) {
+            if (cs) cs.innerHTML = '<p class="err">Error: ' + e.message + '</p>';
+          }
+        }, 100);
+      };
       worker.onmessage = function(e) {
         const d = e.data;
-        if (d.type === 'cfa' && d.ok) { showCfa(d.result); }
-        else if (d.type === 'mlp' && d.ok) { showMlp(d.result.r2, d.result.n); }
+        if (d.type === 'cfa' && d.ok) { showCfa(d.result); cfaDone = true; }
+        else if (d.type === 'mlp' && d.ok) { showMlp(d.result.r2, d.result.n); mlpDone = true; }
         else {
           const el = document.getElementById(d.type === 'cfa' ? 'cfa-status' : 'mlp-status');
           if (el) el.innerHTML = '<p class="err">Error: ' + (d.error || 'desconocido') + '</p>';
+          if (d.type === 'cfa') cfaDone = true; else mlpDone = true;
         }
         if (++done >= 2) {
+          clearTimeout(timeoutId);
           worker.terminate();
-          // Liberar memoria: limpiar referencia a datos
           window.__cfaValid = null;
           if (typeof gc === 'function') { try { gc(); } catch (e) {} }
         }
