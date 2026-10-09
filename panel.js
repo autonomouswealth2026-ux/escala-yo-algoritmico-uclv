@@ -221,114 +221,97 @@ function render(db) {
       if (carreras.length >= 3) {
         h += `<div class="sec"><h3>Post-hoc (réplica SPSS: ONEWAY Post Hoc)</h3>`;
         h += `<p class="muted">Comparaciones por pares tras ANOVA. Tukey HSD (varianzas iguales) y Games-Howell (varianzas desiguales).</p>`;
-        h += `<div class="card-body"><button class="btn primary" id="btn-posthoc" style="min-height:40px;padding:.4rem 1rem">Calcular post-hoc</button> <span id="posthoc-result"></span></div>`;
-        h += `<div id="posthoc-tables"></div></div>`;
+        h += `<div id="posthoc-tables"><p class="muted">Calculando…</p></div></div>`;
         if (typeof window !== 'undefined') {
           window.__phValid = validos;
-          if (!window.__phBound) {
-            window.__phBound = true;
-          document.addEventListener('click', function phHandler(e) {
-            if (e.target && e.target.id === 'btn-posthoc') {
-              const btn = e.target; btn.disabled = true; btn.textContent = 'Calculando…';
-              setTimeout(function() {
-                try {
-                  const vv = window.__phValid;
-                  const cars = [...new Set(vv.map(c => c.CARRERA).filter(v => v != null))].sort();
-                  const labels = cars.map(c => (DEMO_LABELS.CARRERA && DEMO_LABELS.CARRERA[c]) || c);
-                  let ph = '';
-                  ['EYA_TOTAL'].forEach(esc => {
-                    const groups = cars.map(car => vv.filter(c => c.CARRERA === car).map(c => c[esc]));
-                    const tk = tukeyHSD(groups, labels);
-                    ph += renderTukey(tk, esc.replace('_', ' '));
-                    const gh = gamesHowell(groups, labels);
-                    ph += renderGamesHowell(gh, esc.replace('_', ' '));
-                  });
-                  document.getElementById('posthoc-tables').innerHTML = ph;
-                  document.getElementById('posthoc-result').textContent = 'Completado';
-                  btn.textContent = 'Recalcular';
-                  btn.disabled = false;
-                } catch (err) {
-                  document.getElementById('posthoc-result').textContent = 'Error: ' + err.message;
-                  btn.disabled = false;
-                }
-              }, 50);
+          // Ejecución automática tras el renderizado
+          setTimeout(function() {
+            try {
+              const vv = window.__phValid;
+              const cars = [...new Set(vv.map(c => c.CARRERA).filter(v => v != null))].sort();
+              const labels = cars.map(c => (DEMO_LABELS.CARRERA && DEMO_LABELS.CARRERA[c]) || c);
+              let ph = '';
+              ['EYA_TOTAL'].forEach(esc => {
+                const groups = cars.map(car => vv.filter(c => c.CARRERA === car).map(c => c[esc]));
+                const tk = tukeyHSD(groups, labels);
+                ph += renderTukey(tk, esc.replace('_', ' '));
+                const gh = gamesHowell(groups, labels);
+                ph += renderGamesHowell(gh, esc.replace('_', ' '));
+              });
+              const el = document.getElementById('posthoc-tables');
+              if (el) el.innerHTML = ph;
+            } catch (err) {
+              const el = document.getElementById('posthoc-tables');
+              if (el) el.innerHTML = '<p class="muted">Error: ' + err.message + '</p>';
             }
-          });
-          } // __phBound
+          }, 100);
         }
       }
     } catch (e) { /* silencioso */ }
   }
 
-  // MANOVA + Clustering + Mediación (Fase 4B)
+  // MANOVA + Clustering + Mediación (Fase 4B) — ejecución automática
   if (typeof manova === 'function') {
     try {
       h += `<div class="sec"><h3>Análisis multivariado (réplica SPSS: GLM / Classify / Mediation)</h3>`;
-      h += `<div class="card-body"><button class="btn primary" id="btn-multiv" style="min-height:40px;padding:.4rem 1rem">Ejecutar MANOVA + Clustering</button> <span id="multiv-result" class="muted"></span></div>`;
+      h += `<p class="muted" id="multiv-result">Calculando…</p>`;
       h += `<div id="multiv-tables"></div></div>`;
       if (typeof window !== 'undefined') {
         window.__mvValid = validos;
-        if (!window.__mvBound) {
-          window.__mvBound = true;
-        document.addEventListener('click', function mvHandler(e) {
-          if (e.target && e.target.id === 'btn-multiv') {
-            const btn = e.target; btn.disabled = true; btn.textContent = 'Calculando…';
-            setTimeout(function() {
-              try {
-                const vv = window.__mvValid;
-                const cars = [...new Set(vv.map(c => c.CARRERA).filter(v => v != null))].sort();
-                let mh = '';
-                // MANOVA: 4 subescalas por carrera
-                if (cars.length >= 2) {
-                  const groups = cars.map(car => vv.filter(c => c.CARRERA === car)
-                    .map(c => [c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]));
-                  const mv = manova(groups, ['D1', 'D2', 'D3', 'D4']);
-                  if (!mv.error) {
-                    const prow = (name, s) => ['Carrera', name, f2(s.value), f2(s.F), s.df1, s.df2, s.p < 0.001 ? '<.001' : f2(s.p)];
-                    mh += spssTable('Multivariate Tests (MANOVA)',
-                      ['Efecto', 'Estadístico', 'Valor', 'F', 'gl hip.', 'gl error', 'p'],
-                      [prow('Lambda de Wilks', mv.wilks),
-                       prow('Traza de Pillai', mv.pillai),
-                       prow('Hotelling-Lawley', mv.hotelling),
-                       prow('Raíz de Roy', mv.roy)]);
-                  } else mh += '<p class="muted">MANOVA: ' + mv.error + '</p>';
-                }
-                // K-means en subescalas
-                const Xkm = vv.map(c => [c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]);
-                if (Xkm.length >= 10) {
-                  const km = kmeans(Xkm, Math.min(3, cars.length || 2));
-                  mh += spssTable('K-Means Cluster (k=' + km.k + ')',
-                    ['Cluster', 'n', 'Centroide D1', 'D2', 'D3', 'D4'],
-                    km.centroids.map((cen, i) => ['Cluster ' + (i + 1), km.sizes[i]].concat(cen.map(f2))));
-                  mh += '<p class="muted">WCSS = ' + f2(km.wcss) + '. Réplica de Analyze → Classify → K-Means.</p>';
-                }
-                // Mediación: D1 → D2 → EYA_TOTAL (ejemplo)
-                // Bootstraps adaptativos + cálculo por bloques (no congela la interfaz)
-                const nBoot = vv.length > 2000 ? 200 : 500;
-                const resEl = document.getElementById('multiv-result');
-                const mx = vv.map(c => c.D1_COGNITIVA), mm = vv.map(c => c.D2_AFECTIVA), my = vv.map(c => c.EYA_TOTAL);
-                runMediationAsync(mx, mm, my, nBoot, resEl, function(med) {
-                  if (!med.error) {
-                    mh += spssTable('Mediation Analysis (D1 → D2 → Total)',
-                      ['Efecto', 'Estimación', 'p / IC 95%'],
-                      [['Total (c)', f2(med.c), med.cP < 0.001 ? '<.001' : f2(med.cP)],
-                       ['Directo (c′)', f2(med.cPrime), med.cPrimeP < 0.001 ? '<.001' : f2(med.cPrimeP)],
-                       ['Indirecto (a·b)', f2(med.indirect), 'IC boot [' + f2(med.bootCI[0]) + ', ' + f2(med.bootCI[1]) + ']'],
-                       ['Sobel z', f2(med.sobelZ), 'p=' + (med.sobelP < 0.001 ? '<.001' : f2(med.sobelP))]]);
-                  }
-                  document.getElementById('multiv-tables').innerHTML = mh;
-                  document.getElementById('multiv-result').textContent = 'Completado';
-                  btn.textContent = 'Recalcular'; btn.disabled = false;
-                });
-                return; // el resto se completa en el callback
-              } catch (err) {
-                document.getElementById('multiv-result').textContent = 'Error: ' + err.message;
-                btn.disabled = false;
+        // Ejecución automática tras el renderizado (sin botón)
+        setTimeout(function() {
+          try {
+            const vv = window.__mvValid;
+            const cars = [...new Set(vv.map(c => c.CARRERA).filter(v => v != null))].sort();
+            let mh = '';
+            // MANOVA: 4 subescalas por carrera
+            if (cars.length >= 2) {
+              const groups = cars.map(car => vv.filter(c => c.CARRERA === car)
+                .map(c => [c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]));
+              const mv = manova(groups, ['D1', 'D2', 'D3', 'D4']);
+              if (!mv.error) {
+                const prow = (name, s) => ['Carrera', name, f2(s.value), f2(s.F), s.df1, s.df2, s.p < 0.001 ? '<.001' : f2(s.p)];
+                mh += spssTable('Multivariate Tests (MANOVA)',
+                  ['Efecto', 'Estadístico', 'Valor', 'F', 'gl hip.', 'gl error', 'p'],
+                  [prow('Lambda de Wilks', mv.wilks),
+                   prow('Traza de Pillai', mv.pillai),
+                   prow('Hotelling-Lawley', mv.hotelling),
+                   prow('Raíz de Roy', mv.roy)]);
+              } else mh += '<p class="muted">MANOVA: ' + mv.error + '</p>';
+            }
+            // K-means en subescalas
+            const Xkm = vv.map(c => [c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]);
+            if (Xkm.length >= 10) {
+              const km = kmeans(Xkm, Math.min(3, cars.length || 2));
+              mh += spssTable('K-Means Cluster (k=' + km.k + ')',
+                ['Cluster', 'n', 'Centroide D1', 'D2', 'D3', 'D4'],
+                km.centroids.map((cen, i) => ['Cluster ' + (i + 1), km.sizes[i]].concat(cen.map(f2))));
+              mh += '<p class="muted">WCSS = ' + f2(km.wcss) + '. Réplica de Analyze → Classify → K-Means.</p>';
+            }
+            const mtEl = document.getElementById('multiv-tables');
+            if (mtEl) mtEl.innerHTML = mh;
+            // Mediación: D1 → D2 → EYA_TOTAL (asíncrona, con progreso)
+            const nBoot = vv.length > 2000 ? 200 : 500;
+            const resEl = document.getElementById('multiv-result');
+            const mx = vv.map(c => c.D1_COGNITIVA), mm = vv.map(c => c.D2_AFECTIVA), my = vv.map(c => c.EYA_TOTAL);
+            runMediationAsync(mx, mm, my, nBoot, resEl, function(med) {
+              let mh2 = mtEl ? mtEl.innerHTML : '';
+              if (!med.error) {
+                mh2 += spssTable('Mediation Analysis (D1 → D2 → Total)',
+                  ['Efecto', 'Estimación', 'p / IC 95%'],
+                  [['Total (c)', f2(med.c), med.cP < 0.001 ? '<.001' : f2(med.cP)],
+                   ['Directo (c′)', f2(med.cPrime), med.cPrimeP < 0.001 ? '<.001' : f2(med.cPrimeP)],
+                   ['Indirecto (a·b)', f2(med.indirect), 'IC boot [' + f2(med.bootCI[0]) + ', ' + f2(med.bootCI[1]) + ']'],
+                   ['Sobel z', f2(med.sobelZ), 'p=' + (med.sobelP < 0.001 ? '<.001' : f2(med.sobelP))]]);
               }
-            }, 50);
+              if (mtEl) mtEl.innerHTML = mh2;
+              if (resEl) resEl.textContent = 'Completado';
+            });
+          } catch (err) {
+            const resEl = document.getElementById('multiv-result');
+            if (resEl) resEl.textContent = 'Error: ' + err.message;
           }
-        });
-        } // __mvBound
+        }, 150);
       }
     } catch (e) { /* silencioso */ }
   }
@@ -410,7 +393,7 @@ function exportSPS() {
     `    RT_TOTAL_MS F10.0 FLAG_RAPIDEZ F1.0 IMC_CONTROL F1.0 CALIDAD_OK F1.0\n  .\nCACHE.\nEXECUTE.\n\n`;
   s += `VALUE LABELS\n  SEXO 1 'Masculino' 2 'Femenino'\n  /CARRERA 1 'Ingeniería Industrial' 2 'Sociología' 3 'Otra'\n` +
     `  /USO_IA_FREQ 1 'Rara vez/Nunca' 2 '1-2 veces/sem' 3 '3-4 veces/sem' 4 '5+ veces/sem'\n` +
-    `  /EYA_01 TO EYA_28 1 'Totalmente en desacuerdo' 2 'En desacuerdo' 3 'Neutral / Indeciso' 4 'De acuerdo' 5 'Totalmente de acuerdo'\n` +
+    `  /EYA_01 TO EYA_28 1 'Totalmente en desacuerdo' 2 'En desacuerdo' 3 'Ni de acuerdo ni en desacuerdo' 4 'De acuerdo' 5 'Totalmente de acuerdo'\n` +
     `  /CALIDAD_OK 0 'Excluir' 1 'Incluir'.\nEXECUTE.\n\n`;
   for (const esc in ESCALAS) {
     s += `RELIABILITY\n  /VARIABLES=${ESCALAS[esc].join(' ')}\n  /SCALE('${esc}') ALL\n  /MODEL=ALPHA\n  /STATISTICS=DESCRIPTIVE CORR\n  /SUMMARY=TOTAL.\n\n`;
@@ -473,5 +456,64 @@ document.getElementById('btn-demo').addEventListener('click', async () => {
   btn.disabled = false; btn.textContent = 'Cargar datos demo (n=5000)';
 });
 document.getElementById('btn-volver').addEventListener('click', () => mostrar('p-load'));
+/* ---------- copiar informe completo ---------- */
+function buildTextReport() {
+  const host = document.getElementById('p-out');
+  if (!host) return '';
+  const clone = host.cloneNode(true);
+  // Convertir tablas a texto alineado
+  clone.querySelectorAll('table').forEach(tbl => {
+    const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
+      Array.from(tr.querySelectorAll('th,td')).map(c => c.textContent.trim()));
+    if (!rows.length) return;
+    const widths = rows[0].map((_, i) => Math.max(...rows.map(r => (r[i] || '').length)));
+    const lines = rows.map((r, ri) => {
+      const line = r.map((c, i) => (c || '').padEnd(widths[i])).join(' | ');
+      return ri === 0 ? line + '\n' + widths.map(w => '-'.repeat(w)).join('-+-') : line;
+    });
+    const pre = document.createElement('pre');
+    pre.textContent = '\n' + lines.join('\n') + '\n';
+    tbl.replaceWith(pre);
+  });
+  // SVG → descripción
+  clone.querySelectorAll('svg').forEach(svg => {
+    const p = document.createElement('p');
+    p.textContent = '[Gráfico: ' + (svg.querySelector('text') ? svg.querySelector('text').textContent : 'visualización') + ']';
+    svg.replaceWith(p);
+  });
+  let txt = 'INFORME EYA-28 · ' + document.getElementById('p-title').textContent + '\n';
+  txt += 'Generado: ' + new Date().toLocaleString('es-ES') + '\n';
+  txt += '='.repeat(60) + '\n\n';
+  // Recorrer secciones
+  clone.querySelectorAll('.sec').forEach(sec => {
+    const h3 = sec.querySelector('h3');
+    if (h3) txt += '\n## ' + h3.textContent.trim() + '\n' + '-'.repeat(50) + '\n';
+    sec.querySelectorAll('h4,p,pre').forEach(el => {
+      if (el.closest('table')) return;
+      const t = el.textContent.trim();
+      if (t) txt += (el.tagName === 'H4' ? '\n### ' : '') + t + '\n';
+    });
+    txt += '\n';
+  });
+  return txt.replace(/\n{3,}/g, '\n\n').trim();
+}
+document.getElementById('btn-copy').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-copy');
+  const txt = buildTextReport();
+  try {
+    await navigator.clipboard.writeText(txt);
+    btn.textContent = '¡Copiado!';
+  } catch (e) {
+    // Fallback para navegadores sin clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = txt;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); btn.textContent = '¡Copiado!'; }
+    catch (err) { btn.textContent = 'Error al copiar'; }
+    document.body.removeChild(ta);
+  }
+  setTimeout(() => { btn.textContent = 'Copiar informe completo'; }, 2500);
+});
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', exportSPS);
