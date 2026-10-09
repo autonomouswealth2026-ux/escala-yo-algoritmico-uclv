@@ -416,7 +416,12 @@ if (typeof window !== 'undefined') {
           const el = document.getElementById(d.type === 'cfa' ? 'cfa-status' : 'mlp-status');
           if (el) el.innerHTML = '<p class="err">Error: ' + (d.error || 'desconocido') + '</p>';
         }
-        if (++done >= 2) worker.terminate();
+        if (++done >= 2) {
+          worker.terminate();
+          // Liberar memoria: limpiar referencia a datos
+          window.__cfaValid = null;
+          if (typeof gc === 'function') { try { gc(); } catch (e) {} }
+        }
       };
       worker.onerror = function() {
         worker.terminate();
