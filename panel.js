@@ -161,6 +161,15 @@ function render(db) {
     catch (e) { h += `<div class="sec"><p class="muted">Análisis avanzado no disponible: ${e.message}</p></div>`; }
   }
 
+  // CFA/SEM + Bayes + Red neuronal (réplica AMOS)
+  if (typeof renderSEM === 'function') {
+    try {
+      h += renderSEM(validos);
+      if (typeof window !== 'undefined') window.__cfaValid = validos;
+    }
+    catch (e) { h += `<div class="sec"><p class="muted">SEM no disponible: ${e.message}</p></div>`; }
+  }
+
   // Correlaciones inter-escala
   const escKeys = Object.keys(ESCALAS);
   const corrRows = escKeys.map(a =>
