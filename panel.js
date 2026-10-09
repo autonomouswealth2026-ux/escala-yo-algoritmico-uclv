@@ -360,8 +360,11 @@ function render(db) {
 
   document.getElementById('p-out').innerHTML = h;
   document.getElementById('p-title').textContent = `Base procesada · n = ${nValidos} válidos`;
+  // Gráficos y gestión diferidos para no bloquear el scroll inicial
   if (typeof renderGestionGraficos === 'function') {
-    try { renderGestionGraficos(validos); } catch (e) { /* silencioso */ }
+    setTimeout(function() {
+      try { renderGestionGraficos(validos); } catch (e) { /* silencioso */ }
+    }, 400);
   }
 }
 
