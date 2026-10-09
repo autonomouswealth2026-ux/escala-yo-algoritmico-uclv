@@ -300,6 +300,62 @@ function mediation(x, m, y, nBoot) {
 }
 
 /* ================================================================
+   runMediationAsync: ejecuta la mediación por bloques con setTimeout
+   para no congelar la interfaz en muestras grandes. Muestra progreso.
+   ================================================================ */
+function runMediationAsync(x, m, y, nBoot, resEl, done) {
+  nBoot = nBoot || 200;
+  const n = x.length;
+  const col = v => v.map(z => [z]);
+  let base;
+  try {
+    const r_a = regression(col(x), m);
+    const a = r_a.beta[1], se_a = r_a.se[1];
+    const XM = x.map((xi, i) => [xi, m[i]]);
+    const r_b = regression(XM, y);
+    const b = r_b.beta[2], se_b = r_b.se[2];
+    const cPrime = r_b.beta[1], se_cPrime = r_b.se[1];
+    const r_c = regression(col(x), y);
+    const c = r_c.beta[1], se_c = r_c.se[1];
+    const indirect = a * b;
+    const se_sobel = Math.sqrt(b * b * se_a * se_a + a * a * se_b * se_b);
+    const sobelZ = se_sobel > 0 ? indirect / se_sobel : NaN;
+    const sobelP = isNaN(sobelZ) ? NaN : 2 * (1 - normalCDF(Math.abs(sobelZ)));
+    base = { n, a, se_a, b, se_b, c, se_c, cPrime, se_cPrime,
+      cP: tP(c / se_c, n - 2), cPrimeP: tP(cPrime / se_cPrime, n - 3),
+      indirect, se_sobel, sobelZ, sobelP,
+      propMediated: c !== 0 ? indirect / c : NaN };
+  } catch (e) {
+    done({ error: 'Mediación no estimable: ' + e.message });
+    return;
+  }
+  const boots = [];
+  let r = 0;
+  const CHUNK = 25; // réplicas por bloque
+  function step() {
+    const end = Math.min(r + CHUNK, nBoot);
+    for (; r < end; r++) {
+      const idx = Array.from({ length: n }, () => Math.floor(Math.random() * n));
+      const xb = idx.map(i => x[i]), mb = idx.map(i => m[i]), yb = idx.map(i => y[i]);
+      try {
+        const ra = regression(col(xb), mb);
+        const rb = regression(xb.map((xi, j) => [xi, mb[j]]), yb);
+        boots.push(ra.beta[1] * rb.beta[2]);
+      } catch (e) { /* réplica degenerada: se omite */ }
+    }
+    if (resEl) resEl.textContent = 'Mediación: ' + r + '/' + nBoot + '…';
+    if (r < nBoot) { setTimeout(step, 0); return; }
+    boots.sort((u, v) => u - v);
+    base.nBoot = boots.length;
+    base.bootCI = boots.length
+      ? [boots[Math.floor(0.025 * boots.length)], boots[Math.floor(0.975 * boots.length)]]
+      : [NaN, NaN];
+    done(base);
+  }
+  step();
+}
+
+/* ================================================================
    5. Bland-Altman — réplica SPSS v30: acuerdo entre dos mediciones.
       d = a − b; sesgo = media(d); límites = sesgo ± 1.96·DE(d).
    ================================================================ */
