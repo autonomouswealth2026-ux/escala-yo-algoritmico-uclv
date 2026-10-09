@@ -78,3 +78,11 @@ h2{font-size:1.25rem}
   .step.active{animation:none}
   .btn,.likert button{transition:none}
 }
+/* Tablas pivot estilo SPSS */
+.spss-pivot{margin:1.1rem 0}
+.spss-title{font-weight:700;font-size:.95rem;margin-bottom:.35rem}
+.spss-table{border-collapse:collapse;font-size:.85rem;max-width:100%;overflow-x:auto;display:block}
+.spss-table th,.spss-table td{border:1px solid #9a9a9a;padding:.3rem .6rem;text-align:center;white-space:nowrap}
+.spss-table thead th{border-bottom:2px solid #333;background:#f2f2f2}
+.spss-table td.rowlab,.spss-table th.rowlab{text-align:left;font-weight:600;background:#fafafa}
+.spss-notes{font-size:.75rem;color:#555;margin-top:.3rem;line-height:1.5}
