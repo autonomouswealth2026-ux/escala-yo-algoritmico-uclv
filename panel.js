@@ -170,6 +170,127 @@ function render(db) {
     catch (e) { h += `<div class="sec"><p class="muted">SEM no disponible: ${e.message}</p></div>`; }
   }
 
+  // Tablas estilo SPSS + Crosstabs + Post-hoc (Fase 4A)
+  if (typeof renderCrosstab === 'function') {
+    try {
+      h += `<div class="sec"><h3>Tablas cruzadas (réplica SPSS: Analyze → Descriptive → Crosstabs)</h3>`;
+      // SEXO × CARRERA
+      const sx = validos.map(c => c.SEXO), cr = validos.map(c => c.CARRERA);
+      if (sx.some(v => v != null) && cr.some(v => v != null)) {
+        const ct = crosstab(sx, cr);
+        h += renderCrosstab(ct, 'Sexo', 'Carrera');
+      }
+      h += `</div>`;
+    } catch (e) { h += `<div class="sec"><p class="muted">Crosstabs no disponible: ${e.message}</p></div>`; }
+  }
+
+  // Post-hoc tras ANOVA por carrera
+  if (typeof tukeyHSD === 'function') {
+    try {
+      const carreras = [...new Set(validos.map(c => c.CARRERA).filter(v => v != null))].sort();
+      if (carreras.length >= 3) {
+        h += `<div class="sec"><h3>Post-hoc (réplica SPSS: ONEWAY Post Hoc)</h3>`;
+        h += `<p class="muted">Comparaciones por pares tras ANOVA. Tukey HSD (varianzas iguales) y Games-Howell (varianzas desiguales).</p>`;
+        h += `<div class="card-body"><button class="btn primary" id="btn-posthoc" style="min-height:40px;padding:.4rem 1rem">Calcular post-hoc</button> <span id="posthoc-result"></span></div>`;
+        h += `<div id="posthoc-tables"></div></div>`;
+        if (typeof window !== 'undefined') {
+          window.__phValid = validos;
+          document.addEventListener('click', function phHandler(e) {
+            if (e.target && e.target.id === 'btn-posthoc') {
+              const btn = e.target; btn.disabled = true; btn.textContent = 'Calculando…';
+              setTimeout(function() {
+                try {
+                  const vv = window.__phValid;
+                  const cars = [...new Set(vv.map(c => c.CARRERA).filter(v => v != null))].sort();
+                  const labels = cars.map(c => (DEMO_LABELS.CARRERA && DEMO_LABELS.CARRERA[c]) || c);
+                  let ph = '';
+                  ['EYA_TOTAL'].forEach(esc => {
+                    const groups = cars.map(car => vv.filter(c => c.CARRERA === car).map(c => c[esc]));
+                    const tk = tukeyHSD(groups, labels);
+                    ph += renderTukey(tk, esc.replace('_', ' '));
+                    const gh = gamesHowell(groups, labels);
+                    ph += renderGamesHowell(gh, esc.replace('_', ' '));
+                  });
+                  document.getElementById('posthoc-tables').innerHTML = ph;
+                  document.getElementById('posthoc-result').textContent = 'Completado';
+                  btn.textContent = 'Recalcular';
+                  btn.disabled = false;
+                } catch (err) {
+                  document.getElementById('posthoc-result').textContent = 'Error: ' + err.message;
+                  btn.disabled = false;
+                }
+              }, 50);
+            }
+          });
+        }
+      }
+    } catch (e) { /* silencioso */ }
+  }
+
+  // MANOVA + Clustering + Mediación (Fase 4B)
+  if (typeof manova === 'function') {
+    try {
+      h += `<div class="sec"><h3>Análisis multivariado (réplica SPSS: GLM / Classify / Mediation)</h3>`;
+      h += `<div class="card-body"><button class="btn primary" id="btn-multiv" style="min-height:40px;padding:.4rem 1rem">Ejecutar MANOVA + Clustering</button> <span id="multiv-result" class="muted"></span></div>`;
+      h += `<div id="multiv-tables"></div></div>`;
+      if (typeof window !== 'undefined') {
+        window.__mvValid = validos;
+        document.addEventListener('click', function mvHandler(e) {
+          if (e.target && e.target.id === 'btn-multiv') {
+            const btn = e.target; btn.disabled = true; btn.textContent = 'Calculando…';
+            setTimeout(function() {
+              try {
+                const vv = window.__mvValid;
+                const cars = [...new Set(vv.map(c => c.CARRERA).filter(v => v != null))].sort();
+                let mh = '';
+                // MANOVA: 4 subescalas por carrera
+                if (cars.length >= 2) {
+                  const groups = cars.map(car => vv.filter(c => c.CARRERA === car)
+                    .map(c => [c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]));
+                  const mv = manova(groups, ['D1', 'D2', 'D3', 'D4']);
+                  if (!mv.error) {
+                    mh += spssTable('Multivariate Tests (MANOVA)',
+                      ['Efecto', 'Estadístico', 'Valor', 'F', 'gl hip.', 'gl error', 'p'],
+                      [['Carrera', 'Lambda de Wilks', f2(mv.wilks), f2(mv.wilksF), mv.wilksDF[0], mv.wilksDF[1], mv.wilksP < 0.001 ? '<.001' : f2(mv.wilksP)],
+                       ['Carrera', 'Traza de Pillai', f2(mv.pillai), f2(mv.pillaiF), mv.pillaiDF[0], mv.pillaiDF[1], mv.pillaiP < 0.001 ? '<.001' : f2(mv.pillaiP)],
+                       ['Carrera', 'Hotelling-Lawley', f2(mv.hotelling), f2(mv.hotellingF), mv.hotellingDF[0], mv.hotellingDF[1], mv.hotellingP < 0.001 ? '<.001' : f2(mv.hotellingP)],
+                       ['Carrera', 'Raíz de Roy', f2(mv.roy), f2(mv.royF), mv.royDF[0], mv.royDF[1], mv.royP < 0.001 ? '<.001' : f2(mv.royP)]]);
+                  } else mh += '<p class="muted">MANOVA: ' + mv.error + '</p>';
+                }
+                // K-means en subescalas
+                const Xkm = vv.map(c => [c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]);
+                if (Xkm.length >= 10) {
+                  const km = kmeans(Xkm, Math.min(3, cars.length || 2));
+                  mh += spssTable('K-Means Cluster (k=' + km.k + ')',
+                    ['Cluster', 'n', 'Centroide D1', 'D2', 'D3', 'D4'],
+                    km.centroids.map((cen, i) => ['Cluster ' + (i + 1), km.sizes[i]].concat(cen.map(f2))));
+                  mh += '<p class="muted">WCSS = ' + f2(km.wcss) + '. Réplica de Analyze → Classify → K-Means.</p>';
+                }
+                // Mediación: D1 → D2 → EYA_TOTAL (ejemplo)
+                const mx = vv.map(c => c.D1_COGNITIVA), mm = vv.map(c => c.D2_AFECTIVA), my = vv.map(c => c.EYA_TOTAL);
+                const med = mediation(mx, mm, my, 500);
+                if (!med.error) {
+                  mh += spssTable('Mediation Analysis (D1 → D2 → Total)',
+                    ['Efecto', 'Estimación', 'p / IC 95%'],
+                    [['Total (c)', f2(med.c), med.cP < 0.001 ? '<.001' : f2(med.cP)],
+                     ['Directo (c′)', f2(med.cPrime), med.cPrimeP < 0.001 ? '<.001' : f2(med.cPrimeP)],
+                     ['Indirecto (a·b)', f2(med.indirect), 'IC boot [' + f2(med.bootCI[0]) + ', ' + f2(med.bootCI[1]) + ']'],
+                     ['Sobel z', f2(med.sobelZ), 'p=' + (med.sobelP < 0.001 ? '<.001' : f2(med.sobelP))]]);
+                }
+                document.getElementById('multiv-tables').innerHTML = mh;
+                document.getElementById('multiv-result').textContent = 'Completado';
+                btn.textContent = 'Recalcular'; btn.disabled = false;
+              } catch (err) {
+                document.getElementById('multiv-result').textContent = 'Error: ' + err.message;
+                btn.disabled = false;
+              }
+            }, 50);
+          }
+        });
+      }
+    } catch (e) { /* silencioso */ }
+  }
+
   // Correlaciones inter-escala
   const escKeys = Object.keys(ESCALAS);
   const corrRows = escKeys.map(a =>
