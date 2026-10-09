@@ -70,6 +70,71 @@ function cfaFitML(theta, S, p, nf, pattern, n) {
   return isNaN(F) || !isFinite(F) ? 1e10 : Math.max(F, 0);
 }
 
+/* Gradiente analítico para CFA-ML (derivado línea por línea, ver /tmp/derivacion.md)
+   F(θ) = log|Σ| + tr(S·Σ⁻¹) - log|S| - p,  Σ = ΛΦΛ' + Ψ
+   ∂F/∂Σ = Σ⁻¹(Σ-S)Σ⁻¹ ≡ W
+   - Cargas: ∂F/∂λ_ab = 2·[W·Λ·Φ]_{ab}
+   - Correlaciones: ∂F/∂φ_ab = 2·[Λ'·W·Λ]_{ab}
+   - Errores: ∂F/∂ψ_a = W_{aa}
+*/
+function cfaGradAnalytic(theta, S, p, nf, pattern) {
+  const nPar = p + 6 + p; // loadings + corrs + errors (nf=4 → 6 corrs)
+  const grad = new Array(nPar).fill(0);
+
+  // 1. Construir Σ(θ) y sus componentes
+  const Sigma = cfaImplied(theta, p, nf, pattern);
+  let invSig;
+  try { invSig = matInv(Sigma); } catch (e) { return grad.fill(0); }
+
+  // 2. W = Σ⁻¹(Σ - S)Σ⁻¹
+  const diff = Sigma.map((row, i) => row.map((v, j) => v - S[i][j]));
+  const W = matMul(matMul(invSig, diff), invSig);
+
+  // 3. Reconstruir Λ y Φ (misma lógica que cfaImplied)
+  const loadings = theta.slice(0, p);
+  const nCorr = nf * (nf - 1) / 2;
+  const corrs = theta.slice(p, p + nCorr);
+  const Phi = identity(nf);
+  let ci = 0;
+  for (let i = 0; i < nf; i++) for (let j = i + 1; j < nf; j++) {
+    const r = Math.max(-0.95, Math.min(0.95, corrs[ci++]));
+    Phi[i][j] = Phi[j][i] = r;
+  }
+  const Lambda = Array.from({length: p}, () => new Array(nf).fill(0));
+  const fixedIdx = new Set();
+  pattern.factors.forEach((items, f) => {
+    items.forEach((itemIdx, k) => {
+      if (k === 0) { Lambda[itemIdx][f] = 1; fixedIdx.add(itemIdx); }
+      else Lambda[itemIdx][f] = Math.max(0.1, loadings[itemIdx]);
+    });
+  });
+
+  // 4. Gradiente para cargas: 2·[W·Λ·Φ]_{ab}
+  const WLF = matMul(matMul(W, Lambda), Phi);
+  for (let a = 0; a < p; a++) {
+    if (fixedIdx.has(a)) continue; // fijos no se optimizan
+    // Encontrar el factor f para el ítem a
+    let f = -1;
+    pattern.factors.forEach((items, fi) => { if (items.includes(a)) f = fi; });
+    if (f >= 0) grad[a] = 2 * WLF[a][f];
+  }
+
+  // 5. Gradiente para correlaciones: 2·[Λ'·W·Λ]_{ab}
+  const LtWL = matMul(matMul(matT(Lambda), W), Lambda);
+  ci = 0;
+  for (let i = 0; i < nf; i++) for (let j = i + 1; j < nf; j++) {
+    grad[p + ci] = 2 * LtWL[i][j];
+    ci++;
+  }
+
+  // 6. Gradiente para errores: W_{aa}
+  for (let a = 0; a < p; a++) {
+    grad[p + nCorr + a] = W[a][a];
+  }
+
+  return grad;
+}
+
 function cfaEstimate(S, n, maxIter = 300, lr = 0.01) {
   const p = S.length, nf = 4, pattern = CFA_MODEL;
   const nLoad = p, nCorr = 6, nErr = p;
@@ -86,23 +151,11 @@ function cfaEstimate(S, n, maxIter = 300, lr = 0.01) {
     fixedIdx.add(items[0]);
   });
 
-  const h = 1e-6;
   let prevF = Infinity;
   for (let iter = 0; iter < maxIter; iter++) {
     const F0 = cfaFitML(theta, S, p, nf, pattern, n);
-    // Gradiente numérico
-    const grad = new Array(nPar).fill(0);
-    for (let j = 0; j < nPar; j++) {
-      if (fixedIdx.has(j)) continue;
-      // No optimizar errores por debajo de 0.05
-      const tj = theta[j];
-      theta[j] = tj + h;
-      const Fp = cfaFitML(theta, S, p, nf, pattern, n);
-      theta[j] = tj - h;
-      const Fm = cfaFitML(theta, S, p, nf, pattern, n);
-      theta[j] = tj;
-      grad[j] = (Fp - Fm) / (2 * h);
-    }
+    // Gradiente ANALÍTICO (rápido y exacto, ver cfaGradAnalytic)
+    const grad = cfaGradAnalytic(theta, S, p, nf, pattern);
     // Actualizar
     for (let j = 0; j < nPar; j++) {
       if (fixedIdx.has(j)) continue;
