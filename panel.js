@@ -195,6 +195,8 @@ function render(db) {
         h += `<div id="posthoc-tables"></div></div>`;
         if (typeof window !== 'undefined') {
           window.__phValid = validos;
+          if (!window.__phBound) {
+            window.__phBound = true;
           document.addEventListener('click', function phHandler(e) {
             if (e.target && e.target.id === 'btn-posthoc') {
               const btn = e.target; btn.disabled = true; btn.textContent = 'Calculando…';
@@ -222,6 +224,7 @@ function render(db) {
               }, 50);
             }
           });
+          } // __phBound
         }
       }
     } catch (e) { /* silencioso */ }
@@ -235,6 +238,8 @@ function render(db) {
       h += `<div id="multiv-tables"></div></div>`;
       if (typeof window !== 'undefined') {
         window.__mvValid = validos;
+        if (!window.__mvBound) {
+          window.__mvBound = true;
         document.addEventListener('click', function mvHandler(e) {
           if (e.target && e.target.id === 'btn-multiv') {
             const btn = e.target; btn.disabled = true; btn.textContent = 'Calculando…';
@@ -249,12 +254,13 @@ function render(db) {
                     .map(c => [c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]));
                   const mv = manova(groups, ['D1', 'D2', 'D3', 'D4']);
                   if (!mv.error) {
+                    const prow = (name, s) => ['Carrera', name, f2(s.value), f2(s.F), s.df1, s.df2, s.p < 0.001 ? '<.001' : f2(s.p)];
                     mh += spssTable('Multivariate Tests (MANOVA)',
                       ['Efecto', 'Estadístico', 'Valor', 'F', 'gl hip.', 'gl error', 'p'],
-                      [['Carrera', 'Lambda de Wilks', f2(mv.wilks), f2(mv.wilksF), mv.wilksDF[0], mv.wilksDF[1], mv.wilksP < 0.001 ? '<.001' : f2(mv.wilksP)],
-                       ['Carrera', 'Traza de Pillai', f2(mv.pillai), f2(mv.pillaiF), mv.pillaiDF[0], mv.pillaiDF[1], mv.pillaiP < 0.001 ? '<.001' : f2(mv.pillaiP)],
-                       ['Carrera', 'Hotelling-Lawley', f2(mv.hotelling), f2(mv.hotellingF), mv.hotellingDF[0], mv.hotellingDF[1], mv.hotellingP < 0.001 ? '<.001' : f2(mv.hotellingP)],
-                       ['Carrera', 'Raíz de Roy', f2(mv.roy), f2(mv.royF), mv.royDF[0], mv.royDF[1], mv.royP < 0.001 ? '<.001' : f2(mv.royP)]]);
+                      [prow('Lambda de Wilks', mv.wilks),
+                       prow('Traza de Pillai', mv.pillai),
+                       prow('Hotelling-Lawley', mv.hotelling),
+                       prow('Raíz de Roy', mv.roy)]);
                   } else mh += '<p class="muted">MANOVA: ' + mv.error + '</p>';
                 }
                 // K-means en subescalas
@@ -287,6 +293,7 @@ function render(db) {
             }, 50);
           }
         });
+        } // __mvBound
       }
     } catch (e) { /* silencioso */ }
   }
