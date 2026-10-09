@@ -335,13 +335,13 @@ function renderSEM(validos) {
   // ===== CFA =====
   h += '<div class="sec"><h3>Análisis Factorial Confirmatorio (réplica AMOS/SEM)</h3>';
   h += '<p class="muted">Modelo: 4 factores correlacionados (D1–D4). Estimación por Máxima Verosimilitud. Puede tardar ~30 segundos.</p>';
-  h += '<div class="card-body" id="cfa-status"><p>Ejecutando CFA… <button class="btn primary" id="btn-cfa" style="min-height:40px;padding:.4rem 1rem">Ejecutar CFA</button></p></div>';
+  h += '<div class="card-body" id="cfa-status"><p class="muted">Calculando CFA automáticamente…</p></div>';
   h += '<div id="cfa-result"></div></div>';
 
   // ===== RED NEURONAL =====
   h += '<div class="sec"><h3>Red Neuronal — Predicción (MLP)</h3>';
   h += '<p class="muted">Perceptrón multicapa [9 → 12 → 6 → 1] con backpropagation. Predice EYA_TOTAL desde demográficos + subescalas.</p>';
-  h += '<div class="card-body"><button class="btn primary" id="btn-mlp" style="min-height:40px;padding:.4rem 1rem">Entrenar red</button> <span id="mlp-result" class="muted"></span></div></div>';
+  h += '<div class="card-body" id="mlp-status"><p class="muted">Entrenando red automáticamente…</p></div><div id="mlp-result"></div></div>';
 
   // ===== BAYESIANO =====
   h += '<div class="sec"><h3>Análisis Bayesiano (Factor de Bayes)</h3>';
@@ -364,70 +364,70 @@ function renderSEM(validos) {
   return h;
 }
 
-// Guardar referencia para ejecución diferida del CFA
+// Ejecución automática de CFA y MLP tras el renderizado
 if (typeof window !== 'undefined') {
   window.__cfaData = null;
-  document.addEventListener('click', function(e) {
-    if (e.target && e.target.id === 'btn-cfa') {
-      const btn = e.target;
-      btn.disabled = true; btn.textContent = 'Calculando…';
-      setTimeout(function() {
-        try {
-          const validos = window.__cfaValid;
-          const cols27 = [];
-          for (let i = 1; i <= 28; i++) {
-            if (i === 15) continue;
-            const k = 'EYA_' + String(i).padStart(2, '0');
-            cols27.push(k === 'EYA_01' ? 'EYA_01_R' : k === 'EYA_04' ? 'EYA_04_R' : k);
-          }
-          const data27 = validos.map(c => cols27.map(k => c[k]));
-          const S = corrMatrix(data27);
-          const vars = cols27.map((k, j) => variance(data27.map(r => r[j])));
-          const Scov = S.map((r, i) => r.map((val, j) => val * Math.sqrt(vars[i] * vars[j])));
-          const cfa = cfaEstimate(Scov, validos.length, 120, 0.005);
-          const fit = cfa.cfi >= 0.95 && cfa.rmsea <= 0.08 ? 'ok' : 'bad';
-          let rh = '<div class="card-body"><h4>Índices de ajuste</h4>';
-          rh += tabla(['Índice', 'Valor', 'Criterio'],
-            [['χ²', f2(cfa.chi2), 'gl = ' + cfa.df],
-             ['p', cfa.p < 0.001 ? '< .001' : f2(cfa.p), '> .05 ideal (sensible a n)'],
-             ['CFI', `<span class="badge ${cfa.cfi >= 0.95 ? 'ok' : 'bad'}">${f2(cfa.cfi)}</span>`, '≥ .95 bueno'],
-             ['TLI', `<span class="badge ${cfa.tli >= 0.95 ? 'ok' : 'bad'}">${f2(cfa.tli)}</span>`, '≥ .95 bueno'],
-             ['RMSEA', `<span class="badge ${cfa.rmsea <= 0.08 ? 'ok' : 'bad'}">${f2(cfa.rmsea)}</span>`, '≤ .08 aceptable'],
-             ['SRMR', `<span class="badge ${cfa.srmr <= 0.08 ? 'ok' : 'bad'}">${f2(cfa.srmr)}</span>`, '≤ .08 bueno']]);
-          rh += `<p><strong>Correlaciones factoriales:</strong> ${cfa.factorCorrs.map(f2).join(', ')}</p>`;
-          rh += `<p class="muted">Convergencia: ${cfa.converged ? 'sí' : 'no'}. Réplica de AMOS: χ², CFI, TLI, RMSEA, SRMR.</p></div>`;
-          document.getElementById('cfa-result').innerHTML = rh;
-          document.getElementById('cfa-status').style.display = 'none';
-        } catch (err) {
-          document.getElementById('cfa-result').innerHTML = '<p class="err">Error en CFA: ' + err.message + '</p>';
-          btn.disabled = false; btn.textContent = 'Reintentar';
+  window.__runCfaMlp = function() {
+    // CFA automático
+    setTimeout(function() {
+      try {
+        const validos = window.__cfaValid;
+        if (!validos || !validos.length) return;
+        const cols27 = [];
+        for (let i = 1; i <= 28; i++) {
+          if (i === 15) continue;
+          const k = 'EYA_' + String(i).padStart(2, '0');
+          cols27.push(k === 'EYA_01' ? 'EYA_01_R' : k === 'EYA_04' ? 'EYA_04_R' : k);
         }
-      }, 50);
-    }
-    if (e.target && e.target.id === 'btn-mlp') {
-      const btn = e.target;
-      btn.disabled = true; btn.textContent = 'Entrenando…';
-      setTimeout(function() {
-        try {
-          const validos = window.__cfaValid;
-          const X = validos.map(c => [c.EDAD, c.SEXO, c.CARRERA, c.ANO_ACADEMICO, c.USO_IA_FREQ, c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]);
-          const y = validos.map(c => [c.EYA_TOTAL]);
-          const nrm = normalizeData(X);
-          const ymin = Math.min(...y.flat()), ymax = Math.max(...y.flat());
-          const Yn = y.map(r => [(r[0] - ymin) / (ymax - ymin)]);
-          const mlp = new MLP([9, 12, 6, 1], 0.05);
-          mlp.train(nrm.Xn, Yn, 250);
-          const pred = mlp.predict(nrm.Xn).map(p => p[0] * (ymax - ymin) + ymin);
-          const act = y.map(r => r[0]);
-          const r2 = 1 - pred.reduce((s, p, i) => s + (p - act[i]) ** 2, 0) / act.reduce((s, a) => s + (a - vecMean(act)) ** 2, 0);
-          document.getElementById('mlp-result').innerHTML =
-            `R² = <strong>${f2(Math.max(r2, 0))}</strong> <span class="muted">(red [9→12→6→1], 250 épocas)</span>`;
-          btn.textContent = 'Entrenado';
-        } catch (err) {
-          document.getElementById('mlp-result').textContent = 'Error: ' + err.message;
-          btn.disabled = false;
-        }
-      }, 50);
-    }
-  });
+        const data27 = validos.map(c => cols27.map(k => c[k]));
+        const S = corrMatrix(data27);
+        const vars = cols27.map((k, j) => variance(data27.map(r => r[j])));
+        const Scov = S.map((r, i) => r.map((val, j) => val * Math.sqrt(vars[i] * vars[j])));
+        const cfa = cfaEstimate(Scov, validos.length, 120, 0.005);
+        const fit = cfa.cfi >= 0.95 && cfa.rmsea <= 0.08 ? 'ok' : 'bad';
+        let rh = '<div class="card-body"><h4>Índices de ajuste</h4>';
+        rh += tabla(['Índice', 'Valor', 'Criterio'],
+          [['χ²', f2(cfa.chi2), 'gl = ' + cfa.df],
+           ['p', cfa.p < 0.001 ? '< .001' : f2(cfa.p), '> .05 ideal (sensible a n)'],
+           ['CFI', `<span class="badge ${cfa.cfi >= 0.95 ? 'ok' : 'bad'}">${f2(cfa.cfi)}</span>`, '≥ .95 bueno'],
+           ['TLI', `<span class="badge ${cfa.tli >= 0.95 ? 'ok' : 'bad'}">${f2(cfa.tli)}</span>`, '≥ .95 bueno'],
+           ['RMSEA', `<span class="badge ${cfa.rmsea <= 0.08 ? 'ok' : 'bad'}">${f2(cfa.rmsea)}</span>`, '≤ .08 aceptable'],
+           ['SRMR', `<span class="badge ${cfa.srmr <= 0.08 ? 'ok' : 'bad'}">${f2(cfa.srmr)}</span>`, '≤ .08 bueno']]);
+        rh += `<p><strong>Correlaciones factoriales:</strong> ${cfa.factorCorrs.map(f2).join(', ')}</p>`;
+        rh += `<p class="muted">Convergencia: ${cfa.converged ? 'sí' : 'no'}. Réplica de AMOS: χ², CFI, TLI, RMSEA, SRMR.</p></div>`;
+        const cr = document.getElementById('cfa-result');
+        if (cr) cr.innerHTML = rh;
+        const cs = document.getElementById('cfa-status');
+        if (cs) cs.style.display = 'none';
+      } catch (err) {
+        const cr = document.getElementById('cfa-result');
+        if (cr) cr.innerHTML = '<p class="err">Error en CFA: ' + err.message + '</p>';
+      }
+    }, 200);
+    // MLP automático
+    setTimeout(function() {
+      try {
+        const validos = window.__cfaValid;
+        if (!validos || !validos.length) return;
+        const X = validos.map(c => [c.EDAD, c.SEXO, c.CARRERA, c.ANO_ACADEMICO, c.USO_IA_FREQ, c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]);
+        const y = validos.map(c => [c.EYA_TOTAL]);
+        const nrm = normalizeData(X);
+        const ymin = Math.min(...y.flat()), ymax = Math.max(...y.flat());
+        const Yn = y.map(r => [(r[0] - ymin) / (ymax - ymin)]);
+        const mlp = new MLP([9, 12, 6, 1], 0.05);
+        mlp.train(nrm.Xn, Yn, 250);
+        const pred = mlp.predict(nrm.Xn).map(p => p[0] * (ymax - ymin) + ymin);
+        const act = y.map(r => r[0]);
+        const r2 = 1 - pred.reduce((s, p, i) => s + (p - act[i]) ** 2, 0) / act.reduce((s, a) => s + (a - vecMean(act)) ** 2, 0);
+        const ms = document.getElementById('mlp-status');
+        if (ms) ms.innerHTML = '<p class="muted">Red entrenada.</p>';
+        const mr = document.getElementById('mlp-result');
+        if (mr) mr.innerHTML =
+          `R² = <strong>${f2(Math.max(r2, 0))}</strong> <span class="muted">(red [9→12→6→1], 250 épocas)</span>`;
+      } catch (err) {
+        const ms = document.getElementById('mlp-status');
+        if (ms) ms.innerHTML = '<p class="err">Error: ' + err.message + '</p>';
+      }
+    }, 400);
+  };
 }
