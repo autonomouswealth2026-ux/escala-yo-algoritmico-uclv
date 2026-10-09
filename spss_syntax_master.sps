@@ -11,6 +11,7 @@
 * ============================================================.
 
 * ---------- 1. IMPORTAR CSV ----------.
+* NOTA: La primera columna es "Marca temporal" (la antepone el webhook).
 GET DATA /TYPE=TXT
   /FILE='C:\datos\eya28_respuestas.csv'
   /DELCASE=LINE
@@ -19,6 +20,7 @@ GET DATA /TYPE=TXT
   /ARRANGEMENT=DELIMITED
   /FIRSTCASE=2
   /VARIABLES=
+    MARCA_TEMPORAL A19
     ID_SUJETO A20
     EDAD F2.0
     SEXO F1.0
@@ -40,6 +42,7 @@ EXECUTE.
 
 * ---------- 2. ETIQUETAS DE VARIABLE ----------.
 VARIABLE LABELS
+  MARCA_TEMPORAL 'Marca temporal del envío'
   ID_SUJETO 'Identificador anónimo del participante'
   EDAD 'Edad (17-35)'
   SEXO 'Sexo'
