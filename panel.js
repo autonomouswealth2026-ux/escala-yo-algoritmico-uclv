@@ -371,11 +371,23 @@ function render(db) {
 
 /* ---------- exportaciones ---------- */
 function descargar(nombre, contenido, tipo) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([contenido], { type: tipo }));
-  a.download = nombre;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  try {
+    const blob = new Blob([contenido], { type: tipo });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    // Fallback para móviles: si no descarga, abrir en nueva pestaña
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 5000);
+  } catch (e) {
+    alert('Error al descargar: ' + e.message);
+  }
 }
 
 function exportCSV() {
