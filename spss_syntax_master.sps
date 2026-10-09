@@ -90,7 +90,7 @@ VALUE LABELS
   /EYA_01 TO EYA_28
     1 'Totalmente en desacuerdo'
     2 'En desacuerdo'
-    3 'Neutral / Indeciso'
+    3 'Ni de acuerdo ni en desacuerdo'
     4 'De acuerdo'
     5 'Totalmente de acuerdo'
   /FLAG_RAPIDEZ 0 'No' 1 'Sí'
