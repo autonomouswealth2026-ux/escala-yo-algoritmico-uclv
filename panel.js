@@ -273,19 +273,24 @@ function render(db) {
                   mh += '<p class="muted">WCSS = ' + f2(km.wcss) + '. Réplica de Analyze → Classify → K-Means.</p>';
                 }
                 // Mediación: D1 → D2 → EYA_TOTAL (ejemplo)
+                // Bootstraps adaptativos + cálculo por bloques (no congela la interfaz)
+                const nBoot = vv.length > 2000 ? 200 : 500;
+                const resEl = document.getElementById('multiv-result');
                 const mx = vv.map(c => c.D1_COGNITIVA), mm = vv.map(c => c.D2_AFECTIVA), my = vv.map(c => c.EYA_TOTAL);
-                const med = mediation(mx, mm, my, 500);
-                if (!med.error) {
-                  mh += spssTable('Mediation Analysis (D1 → D2 → Total)',
-                    ['Efecto', 'Estimación', 'p / IC 95%'],
-                    [['Total (c)', f2(med.c), med.cP < 0.001 ? '<.001' : f2(med.cP)],
-                     ['Directo (c′)', f2(med.cPrime), med.cPrimeP < 0.001 ? '<.001' : f2(med.cPrimeP)],
-                     ['Indirecto (a·b)', f2(med.indirect), 'IC boot [' + f2(med.bootCI[0]) + ', ' + f2(med.bootCI[1]) + ']'],
-                     ['Sobel z', f2(med.sobelZ), 'p=' + (med.sobelP < 0.001 ? '<.001' : f2(med.sobelP))]]);
-                }
-                document.getElementById('multiv-tables').innerHTML = mh;
-                document.getElementById('multiv-result').textContent = 'Completado';
-                btn.textContent = 'Recalcular'; btn.disabled = false;
+                runMediationAsync(mx, mm, my, nBoot, resEl, function(med) {
+                  if (!med.error) {
+                    mh += spssTable('Mediation Analysis (D1 → D2 → Total)',
+                      ['Efecto', 'Estimación', 'p / IC 95%'],
+                      [['Total (c)', f2(med.c), med.cP < 0.001 ? '<.001' : f2(med.cP)],
+                       ['Directo (c′)', f2(med.cPrime), med.cPrimeP < 0.001 ? '<.001' : f2(med.cPrimeP)],
+                       ['Indirecto (a·b)', f2(med.indirect), 'IC boot [' + f2(med.bootCI[0]) + ', ' + f2(med.bootCI[1]) + ']'],
+                       ['Sobel z', f2(med.sobelZ), 'p=' + (med.sobelP < 0.001 ? '<.001' : f2(med.sobelP))]]);
+                  }
+                  document.getElementById('multiv-tables').innerHTML = mh;
+                  document.getElementById('multiv-result').textContent = 'Completado';
+                  btn.textContent = 'Recalcular'; btn.disabled = false;
+                });
+                return; // el resto se completa en el callback
               } catch (err) {
                 document.getElementById('multiv-result').textContent = 'Error: ' + err.message;
                 btn.disabled = false;
