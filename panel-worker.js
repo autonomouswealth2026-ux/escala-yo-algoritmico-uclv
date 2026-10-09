@@ -2,6 +2,7 @@
 const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
 const variance = a => { const m = mean(a); return a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1); };
 const sd = a => Math.sqrt(variance(a));
+function identity(n) { return Array.from({length: n}, (_, i) => Array.from({length: n}, (_, j) => i === j ? 1 : 0)); }
 
 function matT(A) { return A[0].map((_, j) => A.map(r => r[j])); }
 
