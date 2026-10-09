@@ -5,7 +5,7 @@ const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbx0N00WlLdVciBRoMPl
 
 /* ============ Banco de reactivos ============ */
 const LIKERT = [
-  ['1', 'Totalmente en\ndesacuerdo'], ['2', 'En\ndesacuerdo'], ['3', 'Neutral /\nIndeciso'],
+  ['1', 'Totalmente en\ndesacuerdo'], ['2', 'En\ndesacuerdo'], ['3', 'Ni de acuerdo\nni en desacuerdo'],
   ['4', 'De\nacuerdo'], ['5', 'Totalmente\nde acuerdo']
 ];
 const MODULES = [
