@@ -59,18 +59,29 @@ function svgBar(cats, title) {
   // cats: [[etiqueta, n],...]
   if (!cats.length) return '<p class="muted">Sin datos</p>';
   const cmax = Math.max(...cats.map(c => c[1]));
-  const W = 480, H = 300, ml = 120, mb = 30, mt = 34, mr = 16;
+  const W = 480, H = Math.max(300, 80 + cats.length * 64), ml = 150, mb = 30, mt = 34, mr = 52;
   const pw = W - ml - mr, ph = H - mt - mb;
-  const bh = Math.min(34, ph / cats.length - 6);
+  const rowH = ph / cats.length;
+  const bh = Math.min(34, rowH - 14);
   let s = svgText(W / 2, 20, title, { b: 1, fs: 13 });
   s += `<line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt + ph}" stroke="#64748B"/>`;
   s += `<line x1="${ml}" y1="${mt + ph}" x2="${ml + pw}" y2="${mt + ph}" stroke="#64748B"/>`;
   cats.forEach((c, i) => {
-    const y = mt + 8 + i * (ph / cats.length);
-    const bw = pw * c[1] / cmax;
-    s += svgText(ml - 8, y + bh / 2 + 4, String(c[0]).slice(0, 18), { a: 'end', fs: 11 });
+    const y = mt + (rowH - bh) / 2 + i * rowH;
+    const bw = Math.max(2, pw * c[1] / cmax);
+    // Etiqueta con ajuste: abreviar solo si excede el espacio
+    let lab = String(c[0]);
+    const maxChars = 20;
+    if (lab.length > maxChars) lab = lab.slice(0, maxChars - 1) + '…';
+    s += svgText(ml - 8, y + bh / 2 + 4, lab, { a: 'end', fs: 11 });
     s += `<rect x="${ml}" y="${y}" width="${bw.toFixed(1)}" height="${bh}" fill="#2563EB" opacity="0.85" rx="3"><title>${c[0]}: ${c[1]}</title></rect>`;
-    s += svgText(ml + bw + 6, y + bh / 2 + 4, c[1], { a: 'start', fs: 10, fill: '#64748B' });
+    // Valor: dentro de la barra si hay espacio, fuera si no — nunca cortado
+    const valStr = String(c[1]);
+    if (bw > 44) {
+      s += svgText(ml + bw - 8, y + bh / 2 + 4, valStr, { a: 'end', fs: 10, fill: '#FFFFFF', b: 1 });
+    } else {
+      s += svgText(ml + bw + 6, y + bh / 2 + 4, valStr, { a: 'start', fs: 10, fill: '#64748B' });
+    }
   });
   return svgBase(W, H, s);
 }
