@@ -1,7 +1,7 @@
 /* EYA-28 · Vanilla JS · offline-first · anti-satisficing */
 'use strict';
 /* ============ CONFIG: URL del webhook (Google Apps Script) ============ */
-const WEBHOOK_URL = 'PEGAR_URL_DEL_DESPLIEGUE_AQUI';
+const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbx0N00WlLdVciBRoMPld9qUAvcMuXZcoXRxVcSGLPUFIxlFpGAG0PJymTB69ZdP9bwl/exec';
 
 /* ============ Banco de reactivos ============ */
 const LIKERT = [
