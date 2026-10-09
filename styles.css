@@ -25,7 +25,7 @@ h2{font-size:1.25rem}
 .muted{color:var(--muted);font-size:.92rem}
 .warn{color:#B45309;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:.6rem .8rem;font-size:.92rem}
 .ok{color:#15803D;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:.6rem .8rem;font-size:.92rem}
-.card-foot{display:flex;gap:.6rem;justify-content:flex-end}
+.card-foot{display:flex;gap:.6rem;justify-content:flex-end;flex-wrap:wrap}
 /* Botones: solo transform + opacity (GPU) */
 .btn{
   min-height:var(--tap);padding:.7rem 1.4rem;border-radius:999px;border:1px solid transparent;
