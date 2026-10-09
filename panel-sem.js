@@ -368,78 +368,96 @@ function renderSEM(validos) {
 if (typeof window !== 'undefined') {
   window.__cfaData = null;
   window.__runCfaMlp = function() {
-    // CFA automático (adaptativo: menos iteraciones en muestras grandes)
-    setTimeout(function() {
-      try {
-        const validos = window.__cfaValid;
-        if (!validos || !validos.length) return;
-        const n = validos.length;
-        const cfaIter = n > 2000 ? 30 : 120; // adaptativo
-        const cols27 = [];
-        for (let i = 1; i <= 28; i++) {
-          if (i === 15) continue;
-          const k = 'EYA_' + String(i).padStart(2, '0');
-          cols27.push(k === 'EYA_01' ? 'EYA_01_R' : k === 'EYA_04' ? 'EYA_04_R' : k);
+    // CFA y MLP ÍNTEGROS vía Web Worker (no bloquean la interfaz)
+    const validos = window.__cfaValid;
+    if (!validos || !validos.length) return;
+    const cols27 = [];
+    for (let i = 1; i <= 28; i++) {
+      if (i === 15) continue;
+      const k = 'EYA_' + String(i).padStart(2, '0');
+      cols27.push(k === 'EYA_01' ? 'EYA_01_R' : k === 'EYA_04' ? 'EYA_04_R' : k);
+    }
+    const data27 = validos.map(c => cols27.map(k => c[k]));
+    const S = corrMatrix(data27);
+    const vars = cols27.map((k, j) => variance(data27.map(r => r[j])));
+    const Scov = S.map((r, i) => r.map((val, j) => val * Math.sqrt(vars[i] * vars[j])));
+    const n = validos.length;
+
+    const cs = document.getElementById('cfa-status');
+    const ms = document.getElementById('mlp-status');
+    if (cs) cs.innerHTML = '<p class="muted">Estimando modelo en segundo plano…</p>';
+    if (ms) ms.innerHTML = '<p class="muted">Entrenando red en segundo plano…</p>';
+
+    // Función para renderizar resultados CFA (compartida worker/fallback)
+    function showCfa(cfa) {
+      const cr = document.getElementById('cfa-result');
+      if (cr) cr.innerHTML =
+        `χ²(${cfa.df}) = <strong>${f2(cfa.chi2)}</strong>, p ${fmtP(cfa.p)}<br>` +
+        `CFI = <strong>${f3(cfa.cfi)}</strong> · TLI = <strong>${f3(cfa.tli)}</strong><br>` +
+        `RMSEA = <strong>${f3(cfa.rmsea)}</strong> · SRMR = <strong>${f3(cfa.srmr)}</strong><br>` +
+        `<span class="muted">AIC = ${f1(cfa.aic)} · BIC = ${f1(cfa.bic)} · ${cfa.converged ? 'convergió' : 'límite de iteraciones'}</span>`;
+      if (cs) cs.innerHTML = '<p class="muted">Modelo estimado (120 iteraciones, ML).</p>';
+    }
+    function showMlp(r2, nn) {
+      const mr = document.getElementById('mlp-result');
+      if (mr) mr.innerHTML =
+        `R² = <strong>${f2(Math.max(r2, 0))}</strong> <span class="muted">(red [9→12→6→1], 250 épocas, n=${nn})</span>`;
+      if (ms) ms.innerHTML = '<p class="muted">Red entrenada (datos completos).</p>';
+    }
+
+    try {
+      const worker = new Worker('panel-worker.js');
+      let done = 0;
+      worker.onmessage = function(e) {
+        const d = e.data;
+        if (d.type === 'cfa' && d.ok) { showCfa(d.result); }
+        else if (d.type === 'mlp' && d.ok) { showMlp(d.result.r2, d.result.n); }
+        else {
+          const el = document.getElementById(d.type === 'cfa' ? 'cfa-status' : 'mlp-status');
+          if (el) el.innerHTML = '<p class="err">Error: ' + (d.error || 'desconocido') + '</p>';
         }
-        const data27 = validos.map(c => cols27.map(k => c[k]));
-        const S = corrMatrix(data27);
-        const vars = cols27.map((k, j) => variance(data27.map(r => r[j])));
-        const Scov = S.map((r, i) => r.map((val, j) => val * Math.sqrt(vars[i] * vars[j])));
-        const cfa = cfaEstimate(Scov, n, cfaIter, 0.005);
-        const fit = cfa.cfi >= 0.95 && cfa.rmsea <= 0.08 ? 'ok' : 'bad';
-        let rh = '<div class="card-body"><h4>Índices de ajuste</h4>';
-        rh += tabla(['Índice', 'Valor', 'Criterio'],
-          [['χ²', f2(cfa.chi2), 'gl = ' + cfa.df],
-           ['p', cfa.p < 0.001 ? '< .001' : f2(cfa.p), '> .05 ideal (sensible a n)'],
-           ['CFI', `<span class="badge ${cfa.cfi >= 0.95 ? 'ok' : 'bad'}">${f2(cfa.cfi)}</span>`, '≥ .95 bueno'],
-           ['TLI', `<span class="badge ${cfa.tli >= 0.95 ? 'ok' : 'bad'}">${f2(cfa.tli)}</span>`, '≥ .95 bueno'],
-           ['RMSEA', `<span class="badge ${cfa.rmsea <= 0.08 ? 'ok' : 'bad'}">${f2(cfa.rmsea)}</span>`, '≤ .08 aceptable'],
-           ['SRMR', `<span class="badge ${cfa.srmr <= 0.08 ? 'ok' : 'bad'}">${f2(cfa.srmr)}</span>`, '≤ .08 bueno']]);
-        rh += `<p><strong>Correlaciones factoriales:</strong> ${cfa.factorCorrs.map(f2).join(', ')}</p>`;
-        rh += `<p class="muted">Convergencia: ${cfa.converged ? 'sí' : 'no'}. Réplica de AMOS: χ², CFI, TLI, RMSEA, SRMR.</p></div>`;
-        const cr = document.getElementById('cfa-result');
-        if (cr) cr.innerHTML = rh;
-        const cs = document.getElementById('cfa-status');
-        if (cs) cs.style.display = 'none';
-      } catch (err) {
-        const cr = document.getElementById('cfa-result');
-        if (cr) cr.innerHTML = '<p class="err">Error en CFA: ' + err.message + '</p>';
-      }
-    }, 200);
-    // MLP automático (adaptativo: submuestra en n grande)
-    setTimeout(function() {
-      try {
-        const validos = window.__cfaValid;
-        if (!validos || !validos.length) return;
-        const n = validos.length;
-        // Submuestra para entrenamiento en muestras grandes
-        let sample = validos;
-        let epochs = 250;
-        if (n > 2000) {
-          sample = [];
-          const step = n / 500;
-          for (let i = 0; i < 500; i++) sample.push(validos[Math.floor(i * step)]);
-          epochs = 80;
+        if (++done >= 2) worker.terminate();
+      };
+      worker.onerror = function() {
+        worker.terminate();
+        fallbackMain();
+      };
+      worker.postMessage({ type: 'cfa', payload: { Scov, n } });
+      worker.postMessage({ type: 'mlp', payload: {
+        X: validos.map(c => [c.EDAD, c.SEXO, c.CARRERA, c.ANO_ACADEMICO, c.USO_IA_FREQ, c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]),
+        y: validos.map(c => [c.EYA_TOTAL])
+      }});
+    } catch (err) {
+      fallbackMain();
+    }
+
+    // Fallback: hilo principal con yields (si Worker no disponible)
+    function fallbackMain() {
+      setTimeout(function() {
+        try {
+          const cfa = cfaEstimate(Scov, n, 120, 0.005);
+          showCfa(cfa);
+        } catch (e) {
+          if (cs) cs.innerHTML = '<p class="err">Error: ' + e.message + '</p>';
         }
-        const X = sample.map(c => [c.EDAD, c.SEXO, c.CARRERA, c.ANO_ACADEMICO, c.USO_IA_FREQ, c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]);
-        const y = sample.map(c => [c.EYA_TOTAL]);
-        const nrm = normalizeData(X);
-        const ymin = Math.min(...y.flat()), ymax = Math.max(...y.flat());
-        const Yn = y.map(r => [(r[0] - ymin) / (ymax - ymin)]);
-        const mlp = new MLP([9, 12, 6, 1], 0.05);
-        mlp.train(nrm.Xn, Yn, epochs);
-        const pred = mlp.predict(nrm.Xn).map(p => p[0] * (ymax - ymin) + ymin);
-        const act = y.map(r => r[0]);
-        const r2 = 1 - pred.reduce((s, p, i) => s + (p - act[i]) ** 2, 0) / act.reduce((s, a) => s + (a - vecMean(act)) ** 2, 0);
-        const ms = document.getElementById('mlp-status');
-        if (ms) ms.innerHTML = '<p class="muted">Red entrenada' + (n > 2000 ? ' (submuestra n=500)' : '') + '.</p>';
-        const mr = document.getElementById('mlp-result');
-        if (mr) mr.innerHTML =
-          `R² = <strong>${f2(Math.max(r2, 0))}</strong> <span class="muted">(red [9→12→6→1], ${epochs} épocas)</span>`;
-      } catch (err) {
-        const ms = document.getElementById('mlp-status');
-        if (ms) ms.innerHTML = '<p class="err">Error: ' + err.message + '</p>';
-      }
-    }, 2500);
+      }, 100);
+      setTimeout(function() {
+        try {
+          const X = validos.map(c => [c.EDAD, c.SEXO, c.CARRERA, c.ANO_ACADEMICO, c.USO_IA_FREQ, c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]);
+          const y = validos.map(c => [c.EYA_TOTAL]);
+          const nrm = normalizeData(X);
+          const ymin = Math.min(...y.flat()), ymax = Math.max(...y.flat());
+          const Yn = y.map(r => [(r[0] - ymin) / (ymax - ymin)]);
+          const mlp = new MLP([9, 12, 6, 1], 0.05);
+          mlp.train(nrm.Xn, Yn, 250);
+          const pred = mlp.predict(nrm.Xn).map(p => p[0] * (ymax - ymin) + ymin);
+          const act = y.map(r => r[0]);
+          const r2 = 1 - pred.reduce((s, p, i) => s + (p - act[i]) ** 2, 0) / act.reduce((s, a) => s + (a - vecMean(act)) ** 2, 0);
+          showMlp(r2, n);
+        } catch (e) {
+          if (ms) ms.innerHTML = '<p class="err">Error: ' + e.message + '</p>';
+        }
+      }, 500);
+    }
   };
 }
