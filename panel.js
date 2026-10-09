@@ -197,7 +197,7 @@ function render(db) {
       h += renderSEM(validos);
       if (typeof window !== 'undefined') {
         window.__cfaValid = validos;
-        setTimeout(function() { if (typeof window.__runCfaMlp === 'function') window.__runCfaMlp(); }, 300);
+        setTimeout(function() { if (typeof window.__runCfaMlp === 'function') window.__runCfaMlp(); }, 2000);
       }
     }
     catch (e) { h += `<div class="sec"><p class="muted">SEM no disponible: ${e.message}</p></div>`; }
