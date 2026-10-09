@@ -520,31 +520,148 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
 });
 /* ---------- descargar PDF (vía impresión) ---------- */
 document.getElementById('btn-pdf').addEventListener('click', () => {
+  const btn = document.getElementById('btn-pdf');
+  btn.textContent = 'Preparando…';
+  // Asegurar que todo el contenido esté visible para impresión
   document.body.classList.add('printing-report');
-  window.print();
-  setTimeout(() => document.body.classList.remove('printing-report'), 1000);
+  setTimeout(() => {
+    try {
+      window.print();
+    } catch (e) {
+      alert('No se pudo abrir el diálogo de impresión: ' + e.message);
+    }
+    btn.textContent = 'Descargar PDF';
+    setTimeout(() => document.body.classList.remove('printing-report'), 1000);
+  }, 300);
 });
-/* ---------- descargar Word (.doc compatible) ---------- */
-document.getElementById('btn-word').addEventListener('click', () => {
+/* ---------- descargar Word (.doc y .docx) ---------- */
+function wordHtmlContent() {
   const host = document.getElementById('p-out');
   const title = document.getElementById('p-title').textContent;
-  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">';
-  html += '<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt}h3{color:#1E293B;border-bottom:2px solid #2563EB;padding-bottom:4px}h4{color:#2563EB}table{border-collapse:collapse;margin:8px 0;width:100%}th,td{border:1px solid #94A3B8;padding:4px 8px;text-align:left;font-size:10pt}th{background:#EFF6FF}.muted{color:#64748B;font-size:10pt}.badge{padding:2px 6px;border-radius:4px}.badge.ok{background:#DCFCE7}.badge.bad{background:#FEE2E2}</style></head><body>';
+  let html = '<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt}h3{color:#1E293B;border-bottom:2px solid #2563EB;padding-bottom:4px}h4{color:#2563EB}table{border-collapse:collapse;margin:8px 0;width:100%}th,td{border:1px solid #94A3B8;padding:4px 8px;text-align:left;font-size:10pt}th{background:#EFF6FF}.muted{color:#64748B;font-size:10pt}.badge{padding:2px 6px;border-radius:4px}.badge.ok{background:#DCFCE7}.badge.bad{background:#FEE2E2}</style>';
   html += '<h1>Informe EYA-28</h1><p>' + title + ' · Generado: ' + new Date().toLocaleString('es-ES') + '</p>';
-  // Clonar y limpiar SVGs (Word no los maneja bien)
   const clone = host.cloneNode(true);
   clone.querySelectorAll('svg').forEach(svg => {
     const p = document.createElement('p');
     p.innerHTML = '<i>[Gráfico: ' + (svg.querySelector('text') ? svg.querySelector('text').textContent : 'visualización') + ' — ver en el panel web]</i>';
     svg.replaceWith(p);
   });
-  html += clone.innerHTML + '</body></html>';
+  return html + clone.innerHTML;
+}
+// ZIP mínimo (almacenado, sin compresión) para .docx
+function crc32(str) {
+  const tbl = crc32.t || (crc32.t = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c; }
+    return t;
+  })());
+  let c = 0xFFFFFFFF;
+  const bytes = typeof str === 'string' ? new TextEncoder().encode(str) : str;
+  for (let i = 0; i < bytes.length; i++) c = tbl[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function zipStore(files) {
+  // files: [[nombre, Uint8Array|string],...] → Uint8Array del ZIP
+  const enc = new TextEncoder();
+  let offset = 0;
+  const central = [];
+  const parts = [];
+  const w16 = v => { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, v, true); return b; };
+  const w32 = v => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v, true); return b; };
+  files.forEach(([name, data]) => {
+    const nb = enc.encode(name);
+    const db = typeof data === 'string' ? enc.encode(data) : data;
+    const crc = crc32(db);
+    const lh = new Uint8Array(30);
+    lh.set([0x50, 0x4B, 0x03, 0x04]); lh.set(w16(20), 4); lh.set(w16(0), 8);
+    lh.set(w32(crc), 14); lh.set(w32(db.length), 18); lh.set(w32(db.length), 22);
+    lh.set(w16(nb.length), 26); lh.set(w16(0), 28);
+    parts.push(lh, nb, db);
+    central.push({ nb, crc, len: db.length, offset });
+    offset += 30 + nb.length + db.length;
+  });
+  const cdStart = offset;
+  let cdSize = 0;
+  central.forEach(c => {
+    const ch = new Uint8Array(46);
+    ch.set([0x50, 0x4B, 0x01, 0x02]); ch.set(w16(20), 6); ch.set(w16(20), 8);
+    ch.set(w32(c.crc), 16); ch.set(w32(c.len), 20); ch.set(w32(c.len), 24);
+    ch.set(w16(c.nb.length), 28); ch.set(w32(c.offset), 42);
+    parts.push(ch, c.nb);
+    cdSize += 46 + c.nb.length;
+  });
+  const end = new Uint8Array(22);
+  end.set([0x50, 0x4B, 0x05, 0x06]); end.set(w16(central.length), 8); end.set(w16(central.length), 10);
+  end.set(w32(cdSize), 12); end.set(w32(cdStart), 16);
+  parts.push(end);
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let o = 0;
+  parts.forEach(p => { out.set(p, o); o += p.length; });
+  return out;
+}
+function escXml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function htmlToDocxParagraphs(html) {
+  // Conversión simple: extrae texto de h1/h3/h4/p y tablas
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  let xml = '';
+  const p = (t, style) => { xml += `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ''}<w:r><w:t xml:space="preserve">${escXml(t)}</w:t></w:r></w:p>`; };
+  div.childNodes.forEach(n => {
+    if (n.nodeType !== 1) return;
+    const tag = n.tagName.toLowerCase();
+    if (['h1', 'h2', 'h3'].includes(tag)) p(n.textContent.trim(), 'Heading1');
+    else if (tag === 'h4') p(n.textContent.trim(), 'Heading2');
+    else if (tag === 'p') p(n.textContent.trim());
+    else if (tag === 'div' && n.className.includes('sec')) {
+      n.childNodes.forEach(c => {
+        if (c.nodeType !== 1) return;
+        const ct = c.tagName.toLowerCase();
+        if (ct === 'h3') p(c.textContent.trim(), 'Heading1');
+        else if (ct === 'h4') p(c.textContent.trim(), 'Heading2');
+        else if (ct === 'p') p(c.textContent.trim());
+        else if (ct === 'table') {
+          xml += '<w:p><w:r><w:t xml:space="preserve">[Tabla — ver versión .doc para formato completo]</w:t></w:r></w:p>';
+          c.querySelectorAll('tr').forEach(tr => {
+            const cells = Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()).join(' | ');
+            p(cells);
+          });
+        }
+      });
+    }
+  });
+  return xml;
+}
+function downloadDocx() {
+  const content = wordHtmlContent();
+  const bodyXml = htmlToDocxParagraphs(content);
+  const docXml = `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${bodyXml}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr></w:body></w:document>`;
+  const files = [
+    ['[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`],
+    ['_rels/.rels', `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`],
+    ['word/document.xml', docXml]
+  ];
+  const zip = zipStore(files);
+  const blob = new Blob([zip], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'informe-eya28.docx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function downloadDoc() {
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">' + wordHtmlContent() + '</body></html>';
   const blob = new Blob(['\ufeff' + html], { type: 'application/msword;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'informe-eya28.doc';
-  a.click();
+  document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+document.getElementById('btn-word').addEventListener('click', () => {
+  // Ofrecer .docx (moderno) y .doc (compatible)
+  const c = confirm('Descargar como:\n\nAceptar = .docx (Word moderno)\nCancelar = .doc (compatible)');
+  if (c) downloadDocx(); else downloadDoc();
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', exportSPS);
