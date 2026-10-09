@@ -135,7 +135,8 @@ function procesar(rows) {
   }
 
   const validos = casos.filter(c => c.CALIDAD_OK === 1);
-  return { casos, validos, total: casos.length, nValidos: validos.length };
+  // No guardamos 'casos' completos (ahorra memoria); solo válidos + conteo
+  return { validos, total: casos.length, nValidos: validos.length, nExcluidos: casos.length - validos.length };
 }
 
 /* ---------- render de resultados ---------- */
@@ -151,7 +152,7 @@ function render(db) {
   let h = '';
 
   // Resumen
-  h += `<div class="sec"><h3>Resumen de la muestra</h3><div class="card-body">`;
+  h += `<div class="sec"><h3>Resumen de la muestra</h3></summary><div class="card-body">`;
   h += `<p>Casos importados: <strong>${total}</strong> · Válidos: <strong>${nValidos}</strong> · Excluidos por calidad: <strong>${excluidos}</strong></p>`;
   h += `<p class="muted">Criterios de exclusión: falló el control atencional (IMC), respuestas a velocidad imposible (&lt;1200 ms × 3), tiempo total &lt; 90 s, o valores fuera de rango.</p>`;
   h += `</div></div>`;
@@ -170,7 +171,7 @@ function render(db) {
   });
   const vt = validos.map(c => c.EYA_TOTAL);
   escRows.push(['EYA TOTAL', nValidos, f2(mean(vt)), f2(sd(vt)), Math.min(...vt), Math.max(...vt), '27–135']);
-  h += `<div class="sec"><h3>Descriptivos por subescala</h3>` +
+  h += `<div class="sec"><h3>Descriptivos por subescala</h3></summary>` +
     tabla(['Escala', 'n', 'Media', 'DE', 'Mín', 'Máx', 'Rango posible'], escRows) + `</div>`;
 
   // Fiabilidad
@@ -181,7 +182,7 @@ function render(db) {
     const cls = a >= 0.7 ? 'ok' : 'bad';
     return [`${esc.replace('_', ' ')} (k=${k})`, `<span class="badge ${cls}">${isNaN(a) ? 'n/d' : f2(a)}</span>`];
   });
-  h += `<div class="sec"><h3>Fiabilidad — Alfa de Cronbach</h3>` +
+  h += `<div class="sec"><h3>Fiabilidad — Alfa de Cronbach</h3></summary>` +
     tabla(['Subescala', 'α'], relRows) +
     `<p class="muted">Referencia: α ≥ .70 aceptable, α ≥ .80 bueno.</p></div>`;
 
@@ -206,7 +207,7 @@ function render(db) {
   // Tablas estilo SPSS + Crosstabs + Post-hoc (Fase 4A)
   if (typeof renderCrosstab === 'function') {
     try {
-      h += `<div class="sec"><h3>Tablas cruzadas (réplica SPSS: Analyze → Descriptive → Crosstabs)</h3>`;
+      h += `<div class="sec"><h3>Tablas cruzadas (réplica SPSS: Analyze → Descriptive → Crosstabs)</h3></summary>`;
       // SEXO × CARRERA
       const sx = validos.map(c => c.SEXO), cr = validos.map(c => c.CARRERA);
       if (sx.some(v => v != null) && cr.some(v => v != null)) {
@@ -222,7 +223,7 @@ function render(db) {
     try {
       const carreras = [...new Set(validos.map(c => c.CARRERA).filter(v => v != null))].sort();
       if (carreras.length >= 3) {
-        h += `<div class="sec"><h3>Post-hoc (réplica SPSS: ONEWAY Post Hoc)</h3>`;
+        h += `<div class="sec"><h3>Post-hoc (réplica SPSS: ONEWAY Post Hoc)</h3></summary>`;
         h += `<p class="muted">Comparaciones por pares tras ANOVA. Tukey HSD (varianzas iguales) y Games-Howell (varianzas desiguales).</p>`;
         h += `<div id="posthoc-tables"><p class="muted">Calculando…</p></div></div>`;
         if (typeof window !== 'undefined') {
@@ -256,7 +257,7 @@ function render(db) {
   // MANOVA + Clustering + Mediación (Fase 4B) — ejecución automática
   if (typeof manova === 'function') {
     try {
-      h += `<div class="sec"><h3>Análisis multivariado (réplica SPSS: GLM / Classify / Mediation)</h3>`;
+      h += `<div class="sec"><h3>Análisis multivariado (réplica SPSS: GLM / Classify / Mediation)</h3></summary>`;
       h += `<p class="muted" id="multiv-result">Calculando…</p>`;
       h += `<div id="multiv-tables"></div></div>`;
       if (typeof window !== 'undefined') {
@@ -327,7 +328,7 @@ function render(db) {
       return isNaN(r) ? '—' : f2(r);
     }))
   );
-  h += `<div class="sec"><h3>Correlaciones entre subescalas (Pearson)</h3>` +
+  h += `<div class="sec"><h3>Correlaciones entre subescalas (Pearson)</h3></summary>` +
     tabla([''].concat(escKeys.map(k => k.split('_')[0])), corrRows) + `</div>`;
 
   const spearRows = escKeys.map(a =>
@@ -336,7 +337,7 @@ function render(db) {
       return isNaN(rho) ? '—' : f2(rho);
     }))
   );
-  h += `<div class="sec"><h3>Correlaciones entre subescalas (Spearman, rangos promedio para empates)</h3>` +
+  h += `<div class="sec"><h3>Correlaciones entre subescalas (Spearman, rangos promedio para empates)</h3></summary>` +
     tabla([''].concat(escKeys.map(k => k.split('_')[0])), spearRows) + `</div>`;
 
   // Frecuencias demográficas
@@ -347,13 +348,13 @@ function render(db) {
       const lab = (DEMO_LABELS[d] && DEMO_LABELS[d][v]) || v;
       return [lab, fr[v], f2(fr[v] / nValidos * 100) + '%'];
     });
-    if (rows.length) h += `<div class="sec"><h3>${DEMO_NAMES[d]}</h3>` + tabla(['Categoría', 'n', '%'], rows) + `</div>`;
+    if (rows.length) h += `<div class="sec"><h3>${DEMO_NAMES[d]}</h3></summary>` + tabla(['Categoría', 'n', '%'], rows) + `</div>`;
   });
 
   // Edad
   const edades = validos.map(c => c.EDAD).filter(v => v != null);
   if (edades.length) {
-    h += `<div class="sec"><h3>Edad</h3>` +
+    h += `<div class="sec"><h3>Edad</h3></summary>` +
       tabla(['n', 'Media', 'DE', 'Mín', 'Máx'],
         [[edades.length, f2(mean(edades)), f2(sd(edades)), Math.min(...edades), Math.max(...edades)]]) + `</div>`;
   }
@@ -450,8 +451,9 @@ document.getElementById('btn-demo').addEventListener('click', async () => {
   try {
     const r = await fetch('demo5000.csv');
     if (!r.ok) throw new Error('No se pudo cargar la demo (HTTP ' + r.status + ').');
-    const text = await r.text();
+    let text = await r.text();
     const rows = parseCSV(text);
+    text = null; // Liberar memoria del CSV crudo
     DB = procesar(rows);
     render(DB);
     mostrar('p-results');
