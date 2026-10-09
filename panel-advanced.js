@@ -259,12 +259,26 @@ function pca(R, nFactors) {
 }
 
 /* ---------- Rotación Varimax (criterio de Kaiser, 1958) ----------
-   Maximiza V = Σ_f [ Σ_i a_if⁴ − (Σ_i a_if²)²/p ] por rotaciones planas.
+   Réplica exacta del algoritmo SPSS:
+   1. Normalización de Kaiser: divide cada fila por √h² antes de rotar
+   2. Rotaciones planas maximizando V = Σ_f [ Σ_i a_if⁴ − (Σ_i a_if²)²/p ]
+   3. Desnormalización: multiplica cada fila por √h²
+   4. Reflexión: invierte factores con suma de cargas negativa
    Para cada par (f1,f2): tan(4φ) = (D − 2AB/p) / (C − (A²−B²)/p)
    donde u=a²−b², v=2ab, A=Σu, B=Σv, C=Σ(u²−v²), D=2Σ(uv). */
-function varimax(L, maxIter = 100) {
+function varimax(L, maxIter = 100, kaiserNorm = true) {
   const p = L.length, k = L[0].length;
   let A = L.map(r => r.slice());
+  // Paso 1: normalización de Kaiser
+  let h2 = null;
+  if (kaiserNorm) {
+    h2 = A.map(r => r.reduce((s, v) => s + v * v, 0));
+    A = A.map((r, i) => {
+      const hn = Math.sqrt(Math.max(h2[i], 1e-10));
+      return r.map(v => v / hn);
+    });
+  }
+  // Paso 2: rotaciones planas
   for (let iter = 0; iter < maxIter; iter++) {
     let maxPhi = 0;
     for (let f1 = 0; f1 < k - 1; f1++) for (let f2 = f1 + 1; f2 < k; f2++) {
@@ -290,6 +304,19 @@ function varimax(L, maxIter = 100) {
       }
     }
     if (maxPhi < 1e-10) break;
+  }
+  // Paso 3: desnormalización
+  if (kaiserNorm && h2) {
+    A = A.map((r, i) => {
+      const hn = Math.sqrt(Math.max(h2[i], 1e-10));
+      return r.map(v => v * hn);
+    });
+  }
+  // Paso 4: reflexión de factores con suma negativa (como SPSS)
+  for (let f = 0; f < k; f++) {
+    let sum = 0;
+    for (let i = 0; i < p; i++) sum += A[i][f];
+    if (sum < 0) for (let i = 0; i < p; i++) A[i][f] = -A[i][f];
   }
   return A;
 }
