@@ -152,7 +152,7 @@ function render(db) {
   let h = '';
 
   // Resumen
-  h += `<div class="sec"><h3>Resumen de la muestra</h3></summary><div class="card-body">`;
+  h += `<div class="sec"><h3>Resumen de la muestra</h3><div class="card-body">`;
   h += `<p>Casos importados: <strong>${total}</strong> · Válidos: <strong>${nValidos}</strong> · Excluidos por calidad: <strong>${excluidos}</strong></p>`;
   h += `<p class="muted">Criterios de exclusión: falló el control atencional (IMC), respuestas a velocidad imposible (&lt;1200 ms × 3), tiempo total &lt; 90 s, o valores fuera de rango.</p>`;
   h += `</div></div>`;
@@ -171,7 +171,7 @@ function render(db) {
   });
   const vt = validos.map(c => c.EYA_TOTAL);
   escRows.push(['EYA TOTAL', nValidos, f2(mean(vt)), f2(sd(vt)), Math.min(...vt), Math.max(...vt), '27–135']);
-  h += `<div class="sec"><h3>Descriptivos por subescala</h3></summary>` +
+  h += `<div class="sec"><h3>Descriptivos por subescala</h3>` +
     tabla(['Escala', 'n', 'Media', 'DE', 'Mín', 'Máx', 'Rango posible'], escRows) + `</div>`;
 
   // Fiabilidad
@@ -182,7 +182,7 @@ function render(db) {
     const cls = a >= 0.7 ? 'ok' : 'bad';
     return [`${esc.replace('_', ' ')} (k=${k})`, `<span class="badge ${cls}">${isNaN(a) ? 'n/d' : f2(a)}</span>`];
   });
-  h += `<div class="sec"><h3>Fiabilidad — Alfa de Cronbach</h3></summary>` +
+  h += `<div class="sec"><h3>Fiabilidad — Alfa de Cronbach</h3>` +
     tabla(['Subescala', 'α'], relRows) +
     `<p class="muted">Referencia: α ≥ .70 aceptable, α ≥ .80 bueno.</p></div>`;
 
@@ -207,7 +207,7 @@ function render(db) {
   // Tablas estilo SPSS + Crosstabs + Post-hoc (Fase 4A)
   if (typeof renderCrosstab === 'function') {
     try {
-      h += `<div class="sec"><h3>Tablas cruzadas (réplica SPSS: Analyze → Descriptive → Crosstabs)</h3></summary>`;
+      h += `<div class="sec"><h3>Tablas cruzadas (réplica SPSS: Analyze → Descriptive → Crosstabs)</h3>`;
       // SEXO × CARRERA
       const sx = validos.map(c => c.SEXO), cr = validos.map(c => c.CARRERA);
       if (sx.some(v => v != null) && cr.some(v => v != null)) {
@@ -223,7 +223,7 @@ function render(db) {
     try {
       const carreras = [...new Set(validos.map(c => c.CARRERA).filter(v => v != null))].sort();
       if (carreras.length >= 3) {
-        h += `<div class="sec"><h3>Post-hoc (réplica SPSS: ONEWAY Post Hoc)</h3></summary>`;
+        h += `<div class="sec"><h3>Post-hoc (réplica SPSS: ONEWAY Post Hoc)</h3>`;
         h += `<p class="muted">Comparaciones por pares tras ANOVA. Tukey HSD (varianzas iguales) y Games-Howell (varianzas desiguales).</p>`;
         h += `<div id="posthoc-tables"><p class="muted">Calculando…</p></div></div>`;
         if (typeof window !== 'undefined') {
@@ -257,7 +257,7 @@ function render(db) {
   // MANOVA + Clustering + Mediación (Fase 4B) — ejecución automática
   if (typeof manova === 'function') {
     try {
-      h += `<div class="sec"><h3>Análisis multivariado (réplica SPSS: GLM / Classify / Mediation)</h3></summary>`;
+      h += `<div class="sec"><h3>Análisis multivariado (réplica SPSS: GLM / Classify / Mediation)</h3>`;
       h += `<p class="muted" id="multiv-result">Calculando…</p>`;
       h += `<div id="multiv-tables"></div></div>`;
       if (typeof window !== 'undefined') {
@@ -328,7 +328,7 @@ function render(db) {
       return isNaN(r) ? '—' : f2(r);
     }))
   );
-  h += `<div class="sec"><h3>Correlaciones entre subescalas (Pearson)</h3></summary>` +
+  h += `<div class="sec"><h3>Correlaciones entre subescalas (Pearson)</h3>` +
     tabla([''].concat(escKeys.map(k => k.split('_')[0])), corrRows) + `</div>`;
 
   const spearRows = escKeys.map(a =>
@@ -337,7 +337,7 @@ function render(db) {
       return isNaN(rho) ? '—' : f2(rho);
     }))
   );
-  h += `<div class="sec"><h3>Correlaciones entre subescalas (Spearman, rangos promedio para empates)</h3></summary>` +
+  h += `<div class="sec"><h3>Correlaciones entre subescalas (Spearman, rangos promedio para empates)</h3>` +
     tabla([''].concat(escKeys.map(k => k.split('_')[0])), spearRows) + `</div>`;
 
   // Frecuencias demográficas
@@ -348,13 +348,13 @@ function render(db) {
       const lab = (DEMO_LABELS[d] && DEMO_LABELS[d][v]) || v;
       return [lab, fr[v], f2(fr[v] / nValidos * 100) + '%'];
     });
-    if (rows.length) h += `<div class="sec"><h3>${DEMO_NAMES[d]}</h3></summary>` + tabla(['Categoría', 'n', '%'], rows) + `</div>`;
+    if (rows.length) h += `<div class="sec"><h3>${DEMO_NAMES[d]}</h3>` + tabla(['Categoría', 'n', '%'], rows) + `</div>`;
   });
 
   // Edad
   const edades = validos.map(c => c.EDAD).filter(v => v != null);
   if (edades.length) {
-    h += `<div class="sec"><h3>Edad</h3></summary>` +
+    h += `<div class="sec"><h3>Edad</h3>` +
       tabla(['n', 'Media', 'DE', 'Mín', 'Máx'],
         [[edades.length, f2(mean(edades)), f2(sd(edades)), Math.min(...edades), Math.max(...edades)]]) + `</div>`;
   }
@@ -527,51 +527,79 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
 document.getElementById('btn-pdf').addEventListener('click', () => {
   const btn = document.getElementById('btn-pdf');
   btn.textContent = 'Preparando…';
-  // Generar vista de impresión ligera desde el informe de texto
   try {
-    const txt = buildTextReport();
     const title = document.getElementById('p-title').textContent;
+    const host = document.getElementById('p-out');
     const printWin = window.open('', '_blank');
     if (!printWin) {
       alert('Permite ventanas emergentes para generar el PDF');
       btn.textContent = 'Descargar PDF';
       return;
     }
-    const htmlBody = txt.split('\n').map(line => {
-      if (!line.trim()) return '<p></p>';
-      if (line.match(/^=+$/) || line.match(/^-+$/)) return '';
-      if (line === line.toUpperCase() && line.length > 3 && !line.includes(':') && isNaN(parseFloat(line))) {
-        return '<h3>' + line.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</h3>';
-      }
-      return '<p>' + line.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</p>';
-    }).join('\n');
+    let body = '<h1>Informe EYA-28</h1><p>' + title + ' · ' + new Date().toLocaleString('es-ES') + '</p>';
+    host.querySelectorAll('.sec').forEach(sec => {
+      const h3 = sec.querySelector('h3');
+      if (h3) body += '<h2>' + h3.textContent.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</h2>';
+      sec.querySelectorAll(':scope > h4, :scope > p').forEach(el => {
+        const t = el.textContent.trim();
+        if (!t) return;
+        const tag = el.tagName === 'H4' ? 'h3' : 'p';
+        body += `<${tag}>${t.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</${tag}>`;
+      });
+      sec.querySelectorAll(':scope table').forEach(tbl => {
+        body += '<table>';
+        tbl.querySelectorAll('tr').forEach(tr => {
+          body += '<tr>';
+          tr.querySelectorAll('th,td').forEach(cell => {
+            const tag = cell.tagName.toLowerCase();
+            body += `<${tag}>${cell.textContent.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;')}</${tag}>`;
+          });
+          body += '</tr>';
+        });
+        body += '</table>';
+      });
+    });
     printWin.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe EYA-28</title>' +
-      '<style>body{font-family:Arial,sans-serif;font-size:11pt;margin:40px}h1{color:#1E293B}h3{color:#2563EB;border-bottom:2px solid #2563EB;padding-bottom:4px;margin-top:24px}p{margin:4px 0;white-space:pre-wrap}</style>' +
-      '</head><body><h1>Informe EYA-28</h1><p>' + title + ' · ' + new Date().toLocaleString('es-ES') + '</p>' +
-      htmlBody + '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<\/script></body></html>');
+      '<style>body{font-family:Arial,sans-serif;font-size:10pt;margin:40px}h1{color:#1E293B}h2{color:#1E293B;border-bottom:2px solid #2563EB;padding-bottom:4px;margin-top:20px}h3{color:#2563EB}table{border-collapse:collapse;margin:8px 0;width:100%}th,td{border:1px solid #94A3B8;padding:4px 6px;text-align:left;font-size:9pt}th{background:#EFF6FF}p{margin:4px 0}</style>' +
+      '</head><body>' + body + '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<\/script></body></html>');
     printWin.document.close();
   } catch (e) {
     alert('Error al generar PDF: ' + e.message);
   }
   btn.textContent = 'Descargar PDF';
 });
-/* ---------- descargar Word (.doc y .docx) — VERSIÓN LIGERA ---------- */
+/* ---------- descargar Word (.doc y .docx) — VERSIÓN CON TABLAS ---------- */
 function wordHtmlContent() {
-  // Genera el documento desde el informe de texto (ligero, sin clonar DOM)
   const title = document.getElementById('p-title').textContent;
-  const txt = buildTextReport();
-  // Convertir texto plano a HTML simple
-  const htmlBody = txt.split('\n').map(line => {
-    if (!line.trim()) return '<p></p>';
-    if (line.match(/^=+$/) || line.match(/^-+$/)) return '';
-    if (line === line.toUpperCase() && line.length > 3 && !line.includes(':')) {
-      return '<h3>' + escXml(line) + '</h3>';
-    }
-    return '<p>' + escXml(line) + '</p>';
-  }).join('\n');
-  let html = '<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt}h3{color:#1E293B;border-bottom:2px solid #2563EB;padding-bottom:4px}p{margin:4px 0}</style>';
+  const host = document.getElementById('p-out');
+  let html = '<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt}h2{color:#1E293B;border-bottom:2px solid #2563EB;padding-bottom:4px;margin-top:20px}h3{color:#2563EB;margin-top:16px}table{border-collapse:collapse;margin:8px 0;width:100%}th,td{border:1px solid #94A3B8;padding:4px 8px;text-align:left;font-size:10pt}th{background:#EFF6FF;font-weight:bold}p{margin:4px 0}.muted{color:#64748B;font-size:10pt}</style>';
   html += '<h1>Informe EYA-28</h1><p>' + escXml(title) + ' · Generado: ' + new Date().toLocaleString('es-ES') + '</p>';
-  return html + htmlBody;
+
+  // Recorrer secciones directamente (sin clonar todo el DOM)
+  host.querySelectorAll('.sec').forEach(sec => {
+    const h3 = sec.querySelector('h3');
+    if (h3) html += '<h2>' + escXml(h3.textContent.trim()) + '</h2>';
+    sec.querySelectorAll(':scope > h4, :scope > p').forEach(el => {
+      const t = el.textContent.trim();
+      if (!t) return;
+      if (el.tagName === 'H4') html += '<h3>' + escXml(t) + '</h3>';
+      else html += '<p>' + escXml(t) + '</p>';
+    });
+    // Tablas: copiar estructura real
+    sec.querySelectorAll(':scope table').forEach(tbl => {
+      html += '<table>';
+      tbl.querySelectorAll('tr').forEach((tr, ri) => {
+        html += '<tr>';
+        tr.querySelectorAll('th,td').forEach(cell => {
+          const tag = cell.tagName.toLowerCase();
+          html += `<${tag}>${escXml(cell.textContent.trim())}</${tag}>`;
+        });
+        html += '</tr>';
+      });
+      html += '</table>';
+    });
+  });
+  return html;
 }
 // ZIP mínimo (almacenado, sin compresión) para .docx
 function crc32(str) {
