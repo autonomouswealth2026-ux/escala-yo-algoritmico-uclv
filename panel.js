@@ -330,6 +330,9 @@ function render(db) {
 
   document.getElementById('p-out').innerHTML = h;
   document.getElementById('p-title').textContent = `Base procesada · n = ${nValidos} válidos`;
+  if (typeof renderGestionGraficos === 'function') {
+    try { renderGestionGraficos(validos); } catch (e) { /* silencioso */ }
+  }
 }
 
 /* ---------- exportaciones ---------- */
