@@ -289,6 +289,7 @@ function mediation(x, m, y, nBoot) {
     return {
       n, nBoot: boots.length,
       a, se_a, b, se_b, c, se_c, cPrime, se_cPrime,
+      cP: tP(c / se_c, n - 2), cPrimeP: tP(cPrime / se_cPrime, n - 3),
       indirect, se_sobel, sobelZ, sobelP,
       bootCI: [lo, hi],
       propMediated: c !== 0 ? indirect / c : NaN
