@@ -55,12 +55,14 @@ h2{font-size:1.25rem}
 .item{padding:1rem 0;border-bottom:1px solid var(--line)}
 .item:last-child{border-bottom:0}
 .item p.stem{font-weight:500;margin-bottom:.7rem}
-.likert{display:grid;grid-template-columns:repeat(5,1fr);gap:.35rem}
+.likert{display:grid;grid-template-columns:repeat(5,1fr);gap:.35rem;align-items:stretch}
 .likert button{
   min-height:var(--tap);border:1.5px solid var(--line);border-radius:10px;background:#fff;
   font-size:.78rem;font-weight:600;color:var(--ink);cursor:pointer;padding:.35rem .15rem;
   transition:transform .12s ease-out,background .12s,border-color .12s;
-  will-change:transform;line-height:1.2;
+  will-change:transform;line-height:1.25;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15rem;
+  height:100%;text-align:center;
 }
 .likert button:active{transform:scale(.94)}
 .likert button[aria-pressed=true]{background:var(--sel);border-color:var(--acc);color:var(--acc-d)}
@@ -76,6 +78,15 @@ h2{font-size:1.25rem}
 @media (max-width:420px){
   .likert button{font-size:.68rem}
   h1{font-size:1.25rem}
+}
+@media print{
+  body{background:#fff}
+  .step{display:block !important}
+  #p-load,.card-foot,.btn,#btn-volver{display:none !important}
+  .sec{page-break-inside:avoid;margin-bottom:1rem}
+  table{font-size:.78rem}
+  h3{font-size:1.05rem;border-bottom:2px solid #2563EB;padding-bottom:.3rem}
+  svg{max-width:100%;page-break-inside:avoid}
 }
 @media (prefers-reduced-motion:reduce){
   .step.active{animation:none}
