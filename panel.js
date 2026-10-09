@@ -191,11 +191,14 @@ function render(db) {
     catch (e) { h += `<div class="sec"><p class="muted">Análisis avanzado no disponible: ${e.message}</p></div>`; }
   }
 
-  // CFA/SEM + Bayes + Red neuronal (réplica AMOS)
+  // CFA/SEM + Bayes + Red neuronal (réplica AMOS) — ejecución automática
   if (typeof renderSEM === 'function') {
     try {
       h += renderSEM(validos);
-      if (typeof window !== 'undefined') window.__cfaValid = validos;
+      if (typeof window !== 'undefined') {
+        window.__cfaValid = validos;
+        setTimeout(function() { if (typeof window.__runCfaMlp === 'function') window.__runCfaMlp(); }, 300);
+      }
     }
     catch (e) { h += `<div class="sec"><p class="muted">SEM no disponible: ${e.message}</p></div>`; }
   }
@@ -270,7 +273,7 @@ function render(db) {
                 .map(c => [c.D1_COGNITIVA, c.D2_AFECTIVA, c.D3_CONDUCTUAL, c.D4_IDENTITARIA]));
               const mv = manova(groups, ['D1', 'D2', 'D3', 'D4']);
               if (!mv.error) {
-                const prow = (name, s) => ['Carrera', name, f2(s.value), f2(s.F), s.df1, s.df2, s.p < 0.001 ? '<.001' : f2(s.p)];
+                const prow = (name, s) => ['Carrera', name, f2(s.value), f2(s.F), s.df1, s.df2, s.p < 0.001 ? '< .001' : f2(s.p)];
                 mh += spssTable('Multivariate Tests (MANOVA)',
                   ['Efecto', 'Estadístico', 'Valor', 'F', 'gl hip.', 'gl error', 'p'],
                   [prow('Lambda de Wilks', mv.wilks),
@@ -299,10 +302,10 @@ function render(db) {
               if (!med.error) {
                 mh2 += spssTable('Mediation Analysis (D1 → D2 → Total)',
                   ['Efecto', 'Estimación', 'p / IC 95%'],
-                  [['Total (c)', f2(med.c), med.cP < 0.001 ? '<.001' : f2(med.cP)],
-                   ['Directo (c′)', f2(med.cPrime), med.cPrimeP < 0.001 ? '<.001' : f2(med.cPrimeP)],
+                  [['Total (c)', f2(med.c), med.cP < 0.001 ? '< .001' : f2(med.cP)],
+                   ['Directo (c′)', f2(med.cPrime), med.cPrimeP < 0.001 ? '< .001' : f2(med.cPrimeP)],
                    ['Indirecto (a·b)', f2(med.indirect), 'IC boot [' + f2(med.bootCI[0]) + ', ' + f2(med.bootCI[1]) + ']'],
-                   ['Sobel z', f2(med.sobelZ), 'p=' + (med.sobelP < 0.001 ? '<.001' : f2(med.sobelP))]]);
+                   ['Sobel z', f2(med.sobelZ), 'p=' + (med.sobelP < 0.001 ? '< .001' : f2(med.sobelP))]]);
               }
               if (mtEl) mtEl.innerHTML = mh2;
               if (resEl) resEl.textContent = 'Completado';
@@ -513,7 +516,35 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
     catch (err) { btn.textContent = 'Error al copiar'; }
     document.body.removeChild(ta);
   }
-  setTimeout(() => { btn.textContent = 'Copiar informe completo'; }, 2500);
+  setTimeout(() => { btn.textContent = 'Copiar informe'; }, 2500);
+});
+/* ---------- descargar PDF (vía impresión) ---------- */
+document.getElementById('btn-pdf').addEventListener('click', () => {
+  document.body.classList.add('printing-report');
+  window.print();
+  setTimeout(() => document.body.classList.remove('printing-report'), 1000);
+});
+/* ---------- descargar Word (.doc compatible) ---------- */
+document.getElementById('btn-word').addEventListener('click', () => {
+  const host = document.getElementById('p-out');
+  const title = document.getElementById('p-title').textContent;
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">';
+  html += '<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt}h3{color:#1E293B;border-bottom:2px solid #2563EB;padding-bottom:4px}h4{color:#2563EB}table{border-collapse:collapse;margin:8px 0;width:100%}th,td{border:1px solid #94A3B8;padding:4px 8px;text-align:left;font-size:10pt}th{background:#EFF6FF}.muted{color:#64748B;font-size:10pt}.badge{padding:2px 6px;border-radius:4px}.badge.ok{background:#DCFCE7}.badge.bad{background:#FEE2E2}</style></head><body>';
+  html += '<h1>Informe EYA-28</h1><p>' + title + ' · Generado: ' + new Date().toLocaleString('es-ES') + '</p>';
+  // Clonar y limpiar SVGs (Word no los maneja bien)
+  const clone = host.cloneNode(true);
+  clone.querySelectorAll('svg').forEach(svg => {
+    const p = document.createElement('p');
+    p.innerHTML = '<i>[Gráfico: ' + (svg.querySelector('text') ? svg.querySelector('text').textContent : 'visualización') + ' — ver en el panel web]</i>';
+    svg.replaceWith(p);
+  });
+  html += clone.innerHTML + '</body></html>';
+  const blob = new Blob(['\ufeff' + html], { type: 'application/msword;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'informe-eya28.doc';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', exportSPS);
