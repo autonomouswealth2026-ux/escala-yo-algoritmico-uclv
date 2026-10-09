@@ -71,6 +71,7 @@ function procesar(rows) {
   const header = rows[0].map(h => h.trim());
   const idx = {};
   header.forEach((h, i) => { idx[h] = i; });
+  // Tolerar columna "Marca temporal" al inicio (la agrega Apps Script)
 
   const faltantes = ['ID_SUJETO', 'EDAD', ...ITEMS, 'RT_TOTAL_MS', 'FLAG_RAPIDEZ', 'IMC_CONTROL']
     .filter(c => !(c in idx));
@@ -153,6 +154,12 @@ function render(db) {
   h += `<div class="sec"><h3>Fiabilidad — Alfa de Cronbach</h3>` +
     tabla(['Subescala', 'α'], relRows) +
     `<p class="muted">Referencia: α ≥ .70 aceptable, α ≥ .80 bueno.</p></div>`;
+
+  // Análisis avanzado (réplica SPSS v32)
+  if (typeof renderAvanzado === 'function') {
+    try { h += renderAvanzado(validos); }
+    catch (e) { h += `<div class="sec"><p class="muted">Análisis avanzado no disponible: ${e.message}</p></div>`; }
+  }
 
   // Correlaciones inter-escala
   const escKeys = Object.keys(ESCALAS);
