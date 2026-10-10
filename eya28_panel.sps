@@ -1,0 +1,85 @@
+* EYA-28 · Sintaxis generada automáticamente por el panel del investigador.
+* n válido = 4416 de 5000 casos importados.
+* Los datos ya vienen procesados en el CSV limpio; esta sintaxis reproduce
+* etiquetas, recodificación y cómputos para verificación en IBM SPSS.
+
+GET DATA /TYPE=TXT
+  /FILE='eya28_limpio.csv'
+  /DELIMITERS=","
+  /QUALIFIER='"'
+  /FIRSTCASE=2
+  /VARIABLES=
+    ID_SUJETO A20 EDAD F2.0 SEXO F1.0 CARRERA F1.0 ANO_ACADEMICO F1.0 USO_IA_FREQ F1.0
+    EYA_01 F1.0
+    EYA_02 F1.0
+    EYA_03 F1.0
+    EYA_04 F1.0
+    EYA_05 F1.0
+    EYA_06 F1.0
+    EYA_07 F1.0
+    EYA_08 F1.0
+    EYA_09 F1.0
+    EYA_10 F1.0
+    EYA_11 F1.0
+    EYA_12 F1.0
+    EYA_13 F1.0
+    EYA_14 F1.0
+    EYA_15 F1.0
+    EYA_16 F1.0
+    EYA_17 F1.0
+    EYA_18 F1.0
+    EYA_19 F1.0
+    EYA_20 F1.0
+    EYA_21 F1.0
+    EYA_22 F1.0
+    EYA_23 F1.0
+    EYA_24 F1.0
+    EYA_25 F1.0
+    EYA_26 F1.0
+    EYA_27 F1.0
+    EYA_28 F1.0
+    EYA_01_R F1.0 EYA_04_R F1.0
+    D1_COGNITIVA F2.0 D2_AFECTIVA F2.0 D3_CONDUCTUAL F2.0 D4_IDENTITARIA F2.0 EYA_TOTAL F3.0
+    RT_TOTAL_MS F10.0 FLAG_RAPIDEZ F1.0 IMC_CONTROL F1.0 CALIDAD_OK F1.0
+  .
+CACHE.
+EXECUTE.
+
+VALUE LABELS
+  SEXO 1 'Masculino' 2 'Femenino'
+  /CARRERA 1 'Ingeniería Industrial' 2 'Sociología' 3 'Otra'
+  /USO_IA_FREQ 1 'Rara vez/Nunca' 2 '1-2 veces/sem' 3 '3-4 veces/sem' 4 '5+ veces/sem'
+  /EYA_01 TO EYA_28 1 'Totalmente en desacuerdo' 2 'En desacuerdo' 3 'Ni de acuerdo ni en desacuerdo' 4 'De acuerdo' 5 'Totalmente de acuerdo'
+  /CALIDAD_OK 0 'Excluir' 1 'Incluir'.
+EXECUTE.
+
+RELIABILITY
+  /VARIABLES=EYA_01 EYA_02 EYA_03 EYA_04 EYA_05 EYA_06 EYA_07
+  /SCALE('D1_COGNITIVA') ALL
+  /MODEL=ALPHA
+  /STATISTICS=DESCRIPTIVE CORR
+  /SUMMARY=TOTAL.
+
+RELIABILITY
+  /VARIABLES=EYA_08 EYA_09 EYA_10 EYA_11 EYA_12 EYA_13 EYA_14
+  /SCALE('D2_AFECTIVA') ALL
+  /MODEL=ALPHA
+  /STATISTICS=DESCRIPTIVE CORR
+  /SUMMARY=TOTAL.
+
+RELIABILITY
+  /VARIABLES=EYA_15 EYA_16 EYA_17 EYA_18 EYA_19 EYA_20 EYA_21
+  /SCALE('D3_CONDUCTUAL') ALL
+  /MODEL=ALPHA
+  /STATISTICS=DESCRIPTIVE CORR
+  /SUMMARY=TOTAL.
+
+RELIABILITY
+  /VARIABLES=EYA_22 EYA_23 EYA_24 EYA_25 EYA_26 EYA_27 EYA_28
+  /SCALE('D4_IDENTITARIA') ALL
+  /MODEL=ALPHA
+  /STATISTICS=DESCRIPTIVE CORR
+  /SUMMARY=TOTAL.
+
+DESCRIPTIVES VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL
+  /STATISTICS=MEAN STDDEV MIN MAX.
