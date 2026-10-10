@@ -909,6 +909,8 @@ function cfaEstimate(S, n, maxIter = 300, lr = 0.01) {
     tli: Math.max(0, Math.min(1, tli)),
     rmsea: Math.min(rmsea, 1),
     srmr,
+    aic: chi2 + 2 * nFree,
+    bic: chi2 + nFree * Math.log(n),
     loadings: theta.slice(0, p),
     factorCorrs: theta.slice(p, p + nCorr),
     converged: Fmin < 1e9
