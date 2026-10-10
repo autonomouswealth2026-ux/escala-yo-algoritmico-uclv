@@ -773,6 +773,7 @@ async function buildDocBlob() {
   return new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
 }
 document.getElementById('btn-word').addEventListener('click', async () => {
+  alert('DEBUG: btn-word clic detectado');
   const btn = document.getElementById('btn-word');
   const origText = btn.textContent;
   btn.disabled = true; btn.textContent = 'Generando…';
@@ -787,4 +788,7 @@ document.getElementById('btn-word').addEventListener('click', async () => {
   }
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
-document.getElementById('btn-sps').addEventListener('click', exportSPS);
+document.getElementById('btn-sps').addEventListener('click', () => {
+  alert('DEBUG: btn-sps clic detectado. DB=' + (typeof DB) + (DB ? ', validos=' + (DB.validos ? DB.validos.length : 'null') : ''));
+  exportSPS();
+});
