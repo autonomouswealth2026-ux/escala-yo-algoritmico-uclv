@@ -243,14 +243,12 @@ function render(db) {
   // Tablas estilo SPSS + Crosstabs + Post-hoc (Fase 4A)
   if (typeof renderCrosstab === 'function') {
     try {
-      h += `<div class="sec"><h3>Tablas cruzadas (réplica SPSS: Analyze → Descriptive → Crosstabs)</h3>`;
       // SEXO × CARRERA
       const sx = validos.map(c => c.SEXO), cr = validos.map(c => c.CARRERA);
       if (sx.some(v => v != null) && cr.some(v => v != null)) {
         const ct = crosstab(sx, cr);
         h += renderCrosstab(ct, 'Sexo', 'Carrera');
       }
-      h += `</div>`;
     } catch (e) { h += `<div class="sec"><p class="muted">Crosstabs no disponible: ${e.message}</p></div>`; }
   }
 
@@ -455,7 +453,7 @@ function exportSPS() {
     s += `RELIABILITY\n  /VARIABLES=${ESCALAS[esc].join(' ')}\n  /SCALE('${esc}') ALL\n  /MODEL=ALPHA\n  /STATISTICS=DESCRIPTIVE CORR\n  /SUMMARY=TOTAL.\n\n`;
   }
   s += `DESCRIPTIVES VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL\n  /STATISTICS=MEAN STDDEV MIN MAX.\n`;
-  descargar('eya28_panel.sps', s, 'text/plain;charset=utf-8');
+  descargar('eya28_panel.sps', s, 'application/octet-stream');
   } catch (e) {
     alert('Error al generar la sintaxis: ' + e.message);
   }
@@ -758,7 +756,7 @@ function htmlToDocxParagraphs(html) {
   });
   return xml;
 }
-function downloadDocx() {
+async function buildDocxBlob() {
   const content = wordHtmlContent();
   const bodyXml = htmlToDocxParagraphs(content);
   const docXml = `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${bodyXml}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr></w:body></w:document>`;
@@ -768,18 +766,33 @@ function downloadDocx() {
     ['word/document.xml', docXml]
   ];
   const zip = zipStore(files);
-  // Usar descargar() compartida: mantiene el anchor en el DOM 5s (en Android
-  // un remove() sincrono tras click() puede cancelar la descarga).
-  descargar('informe-eya28.docx', zip, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  return new Blob([zip], {type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
 }
-function downloadDoc() {
+async function buildDocBlob() {
   const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">' + wordHtmlContent() + '</body></html>';
-  descargar('informe-eya28.doc', '\ufeff' + html, 'application/msword;charset=utf-8');
+  return new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
 }
-document.getElementById('btn-word').addEventListener('click', () => {
-  // Ofrecer .docx (moderno) y .doc (compatible)
-  const c = confirm('Descargar como:\n\nAceptar = .docx (Word moderno)\nCancelar = .doc (compatible)');
-  if (c) downloadDocx(); else downloadDoc();
+document.getElementById('btn-word').addEventListener('click', async () => {
+  // Descarga en dos pasos: genera el blob primero, luego enlace real para tap genuino
+  const btn = document.getElementById('btn-word');
+  const origText = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Generando Word…';
+  try {
+    await new Promise(r => setTimeout(r, 50)); // deja pintar la UI
+    const c = confirm('Descargar como:\n\nAceptar = .docx (Word moderno)\nCancelar = .doc (compatible)');
+    let blob, fname;
+    if (c) { blob = await buildDocxBlob(); fname = 'informe-eya28.docx'; }
+    else { blob = await buildDocBlob(); fname = 'informe-eya28.doc'; }
+    const url = URL.createObjectURL(blob);
+    // Sustituir por enlace real: tap genuino siempre permitido en Android
+    const a = document.createElement('a');
+    a.id = 'btn-word-dl'; a.className = 'btn primary'; a.href = url; a.download = fname;
+    a.textContent = 'Toca aquí para descargar el Word';
+    btn.replaceWith(a);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = origText;
+    alert('No se pudo generar el Word: ' + e.message);
+  }
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', exportSPS);
