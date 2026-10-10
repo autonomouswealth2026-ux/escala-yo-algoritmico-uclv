@@ -406,16 +406,16 @@ function render(db) {
 /* ---------- exportaciones ---------- */
 function descargar(nombre, contenido, tipo) {
   const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nombre;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    if (a.parentNode) document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 10000);
+  const reader = new FileReader();
+  reader.onload = function() {
+    const a = document.createElement('a');
+    a.href = reader.result;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { if (a.parentNode) document.body.removeChild(a); }, 4000);
+  };
+  reader.readAsDataURL(blob);
 }
 
 function exportCSV() {
