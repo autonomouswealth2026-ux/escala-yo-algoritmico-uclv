@@ -1068,6 +1068,30 @@ document.getElementById('btn-sps').addEventListener('click', () => {
 });
 
 // ===== Envío por correo vía EmailJS =====
+
+// Extrae secciones estructuradas del DOM para el informe profesional
+function extraerSecciones() {
+  const host = document.getElementById('p-out');
+  const secs = [];
+  host.querySelectorAll('.sec').forEach(sec => {
+    const h3 = sec.querySelector('h3');
+    const titulo = h3 ? h3.textContent.trim() : 'Sección';
+    const parrafos = [];
+    sec.querySelectorAll(':scope > p').forEach(p => {
+      const t = p.textContent.trim();
+      if (t && !t.includes('Calculando') && !t.includes('Entrenando')) parrafos.push(t);
+    });
+    const tablas = [];
+    sec.querySelectorAll(':scope table').forEach(tbl => {
+      const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
+        Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
+      if (rows.length) tablas.push(rows);
+    });
+    if (parrafos.length || tablas.length) secs.push({ titulo, parrafos, tablas });
+  });
+  return secs;
+}
+
 async function enviarPorCorreo() {
   if (!DB) { alert('Procesa primero una base de datos.'); return; }
   const email = prompt('Correo destino:', 'carlosmiguelvaldesrodriguez@gmail.com');
@@ -1111,10 +1135,10 @@ async function enviarPorCorreo() {
     for (let i = 0; i < docxBytes.length; i++) docxB64 += String.fromCharCode(docxBytes[i]);
     docxB64 = btoa(docxB64);
     if (btn) btn.textContent = 'Enviando…';
-    await fetch('https://script.google.com/macros/s/AKfycbyFkdc4DH1Y3xVXjeMTFWSE1Ru7zqhvjiNRu6qYDZoIBavk0WvX6fOKbSlapufILdCx/exec', {
+    await fetch('https://script.google.com/macros/s/AKfycbxhXv-ODiU-8A-oWnJnSzhchYmGBcB7UYA9hu7F_QovBtsgCBq_VnSzfnJCYaQFKyGW/exec', {
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'sendFiles', to: email, spsB64, docxB64 })
+      body: JSON.stringify({ action: 'informePro', to: email, spsB64, secciones: JSON.stringify(extraerSecciones()) })
     });
     alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
   } catch (e) {
