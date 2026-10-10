@@ -406,7 +406,7 @@ function render(db) {
 /* ---------- exportaciones ---------- */
 function descargar(nombre, contenido, tipo) {
   try {
-    const blob = new Blob([contenido], { type: tipo });
+    const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -773,25 +773,17 @@ async function buildDocBlob() {
   return new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
 }
 document.getElementById('btn-word').addEventListener('click', async () => {
-  // Descarga en dos pasos: genera el blob primero, luego enlace real para tap genuino
   const btn = document.getElementById('btn-word');
   const origText = btn.textContent;
-  btn.disabled = true; btn.textContent = 'Generando Word…';
+  btn.disabled = true; btn.textContent = 'Generando…';
   try {
-    await new Promise(r => setTimeout(r, 50)); // deja pintar la UI
-    const c = confirm('Descargar como:\n\nAceptar = .docx (Word moderno)\nCancelar = .doc (compatible)');
-    let blob, fname;
-    if (c) { blob = await buildDocxBlob(); fname = 'informe-eya28.docx'; }
-    else { blob = await buildDocBlob(); fname = 'informe-eya28.doc'; }
-    const url = URL.createObjectURL(blob);
-    // Sustituir por enlace real: tap genuino siempre permitido en Android
-    const a = document.createElement('a');
-    a.id = 'btn-word-dl'; a.className = 'btn primary'; a.href = url; a.download = fname;
-    a.textContent = 'Toca aquí para descargar el Word';
-    btn.replaceWith(a);
+    await new Promise(r => setTimeout(r, 30));
+    const blob = await buildDocxBlob();
+    descargar('informe-eya28.docx', blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
   } catch (e) {
-    btn.disabled = false; btn.textContent = origText;
     alert('No se pudo generar el Word: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = origText;
   }
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
