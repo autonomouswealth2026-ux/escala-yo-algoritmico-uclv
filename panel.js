@@ -888,11 +888,6 @@ document.getElementById('btn-sps').addEventListener('click', () => {
 });
 
 // ===== Envío por correo vía EmailJS =====
-const EMAILJS_CONFIG = {
-  publicKey: '3AEIV7ha3CKfQh61j',
-  serviceId: 'service_iq371lg',
-  templateId: 'template_52p5inc'
-};
 async function enviarPorCorreo() {
   if (!DB) { alert('Procesa primero una base de datos.'); return; }
   const email = prompt('Correo destino:', 'carlosmiguelvaldesrodriguez@gmail.com');
@@ -901,17 +896,6 @@ async function enviarPorCorreo() {
   const orig = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
   try {
-    // Cargar EmailJS si no está
-    if (!window.emailjs) {
-      await new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
-        s.onload = res; s.onerror = rej;
-        document.head.appendChild(s);
-      });
-    }
-    emailjs.init(EMAILJS_CONFIG.publicKey);
-    // Generar archivos
     const sps = generarSPS();
     const spsB64 = btoa(unescape(encodeURIComponent(sps)));
     const docxBytes = generarDocx([
@@ -921,16 +905,15 @@ async function enviarPorCorreo() {
     let docxB64 = '';
     for (let i = 0; i < docxBytes.length; i++) docxB64 += String.fromCharCode(docxBytes[i]);
     docxB64 = btoa(docxB64);
-    await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
-      to_email: email,
-      subject: 'EYA-28: sintaxis .sps e informe',
-      message: 'Adjunto la sintaxis SPSS y el informe Word del EYA-28.',
-      sps_file: spsB64,
-      docx_file: docxB64
+    const resp = await fetch('https://script.google.com/macros/s/AKfycbw19QFhIDklGg1bCvz-qzsuzsLtO12U6puVgVR366LAvKpFDByTOryuPlLUQGt-l1g3/exec', {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'sendFiles', to: email, spsB64, docxB64 })
     });
-    alert('Correo enviado a ' + email);
+    alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
   } catch (e) {
-    alert('Error al enviar: ' + e.message + '\nVerifica la configuración de EmailJS.');
+    alert('Error: ' + e.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
