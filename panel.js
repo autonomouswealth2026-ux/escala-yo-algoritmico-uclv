@@ -905,7 +905,7 @@ async function enviarPorCorreo() {
     let docxB64 = '';
     for (let i = 0; i < docxBytes.length; i++) docxB64 += String.fromCharCode(docxBytes[i]);
     docxB64 = btoa(docxB64);
-    const resp = await fetch('https://script.google.com/macros/s/AKfycbw19QFhIDklGg1bCvz-qzsuzsLtO12U6puVgVR366LAvKpFDByTOryuPlLUQGt-l1g3/exec', {
+    const resp = await fetch('https://script.google.com/macros/s/AKfycbwE_s6rxeG0RkaAW8Sh8dudS9ucJVNqoUnykaHOQoavU2Np_VyKYbOynnmPtg1DouWO/exec', {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
