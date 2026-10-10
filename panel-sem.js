@@ -529,7 +529,7 @@ if (typeof window !== 'undefined') {
     function fallbackMain() {
       setTimeout(function() {
         try {
-          const cfa = cfaEstimate(Scov, n, 120, 0.005);
+          const cfa = cfaEstimate(Scov, n, 300, 0.005);
           showCfa(cfa);
         } catch (e) {
           if (cs) cs.innerHTML = '<p class="err">Error: ' + e.message + '</p>';
