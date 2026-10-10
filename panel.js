@@ -778,11 +778,14 @@ document.getElementById('btn-word').addEventListener('click', async () => {
   const origText = btn.textContent;
   btn.disabled = true; btn.textContent = 'Generando…';
   try {
+    alert('DEBUG: antes de buildDocxBlob');
     await new Promise(r => setTimeout(r, 30));
     const blob = await buildDocxBlob();
+    alert('DEBUG: blob generado, tamaño=' + blob.size);
     descargar('informe-eya28.docx', blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    alert('DEBUG: descargar() llamado');
   } catch (e) {
-    alert('No se pudo generar el Word: ' + e.message);
+    alert('No se pudo generar el Word: ' + e.message + '\n' + e.stack);
   } finally {
     btn.disabled = false; btn.textContent = origText;
   }
@@ -790,5 +793,10 @@ document.getElementById('btn-word').addEventListener('click', async () => {
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', () => {
   alert('DEBUG: btn-sps clic detectado. DB=' + (typeof DB) + (DB ? ', validos=' + (DB.validos ? DB.validos.length : 'null') : ''));
-  exportSPS();
+  try {
+    exportSPS();
+    alert('DEBUG: exportSPS() completado sin excepción');
+  } catch (e) {
+    alert('DEBUG: exportSPS lanzó: ' + e.message);
+  }
 });
