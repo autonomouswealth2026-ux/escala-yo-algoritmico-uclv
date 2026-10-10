@@ -898,14 +898,36 @@ async function enviarPorCorreo() {
   try {
     const sps = generarSPS();
     const spsB64 = btoa(unescape(encodeURIComponent(sps)));
-    const docxBytes = generarDocx([
-      { seccion: 'Fiabilidad (α de Cronbach)', filas: [['Subescala','α'],['D1 Cognitiva','0.83'],['D2 Afectiva','0.83'],['D3 Conductual','0.81'],['D4 Identitaria','0.83']] },
-      { seccion: 'Descriptivos', filas: [['Subescala','Media','DE'],['D1','20.90','5.79'],['D2','21.21','5.78'],['D3','18.05','5.03'],['D4','21.00','5.67']] }
-    ], 'Informe EYA-28');
+    // Generar .docx con el informe COMPLETO del panel
+    const txtReport = buildTextReport();
+    const secciones = [];
+    let secActual = { seccion: 'Resumen', filas: [] };
+    const lineas = txtReport.split('\n');
+    let tablaActual = [];
+    for (const ln of lineas) {
+      const t = ln.trim();
+      if (t.startsWith('## ')) {
+        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
+        if (secActual.filas.length || secActual.seccion !== 'Resumen') secciones.push(secActual);
+        secActual = { seccion: t.slice(3), filas: [] };
+      } else if (t.startsWith('### ')) {
+        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
+        secciones.push(secActual); secActual = { seccion: t.slice(4), filas: [] };
+      } else if (t.includes(' | ')) {
+        const celdas = t.split(' | ').map(x => x.trim());
+        if (!/^-+$/.test(celdas[0].replace(/-\+-/g,''))) tablaActual.push(celdas);
+      } else if (t && !t.match(/^[=\-]{10,}$/)) {
+        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
+        if (secActual.filas.length === 0) secActual.filas.push([t]); else secActual.filas.push([t]);
+      }
+    }
+    if (tablaActual.length) secActual.filas = tablaActual;
+    secciones.push(secActual);
+    const docxBytes = generarDocx(secciones.filter(s => s.filas.length > 0), 'Informe EYA-28');
     let docxB64 = '';
     for (let i = 0; i < docxBytes.length; i++) docxB64 += String.fromCharCode(docxBytes[i]);
     docxB64 = btoa(docxB64);
-    const resp = await fetch('https://script.google.com/macros/s/AKfycbwE_s6rxeG0RkaAW8Sh8dudS9ucJVNqoUnykaHOQoavU2Np_VyKYbOynnmPtg1DouWO/exec', {
+    const resp = await fetch('https://script.google.com/macros/s/AKfycbzXw9YuiVpb2xTgZ_KPHrUy5T8CZvH_tvL6rwwFZ7aozH9-OU9I5Bki4ovMkMyw5V73/exec', {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
