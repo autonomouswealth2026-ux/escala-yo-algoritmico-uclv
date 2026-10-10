@@ -428,11 +428,9 @@ function exportCSV() {
   descargar('eya28_limpio.csv', '﻿' + lines.join('\n'), 'text/csv;charset=utf-8');
 }
 
-function exportSPS() {
-  document.title = 'SPS: inicio';
+function generarSPS() {
   if (!DB) { alert('Procesa primero una base de datos para generar la sintaxis.'); return; }
   try {
-  document.title = 'SPS: generando';
   let s = `* EYA-28 · Sintaxis generada automáticamente por el panel del investigador.\n` +
     `* n válido = ${DB.nValidos} de ${DB.total} casos importados.\n` +
     `* Los datos ya vienen procesados en el CSV limpio; esta sintaxis reproduce\n` +
@@ -449,7 +447,7 @@ function exportSPS() {
     s += `RELIABILITY\n  /VARIABLES=${ESCALAS[esc].join(' ')}\n  /SCALE('${esc}') ALL\n  /MODEL=ALPHA\n  /STATISTICS=DESCRIPTIVE CORR\n  /SUMMARY=TOTAL.\n\n`;
   }
   s += `DESCRIPTIVES VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL\n  /STATISTICS=MEAN STDDEV MIN MAX.\n`;
-  descargar('eya28_panel.sps', s, 'text/plain;charset=utf-8');
+  return s;
   } catch (e) {
     alert('Error al generar la sintaxis: ' + e.message);
   }
@@ -783,4 +781,15 @@ document.getElementById('btn-word').addEventListener('click', async () => {
   }
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
-document.getElementById('btn-sps').addEventListener('click', exportSPS);
+document.getElementById('btn-sps').addEventListener('click', async () => {
+  if (!DB) { alert('Procesa primero una base de datos.'); return; }
+  try {
+    const s = generarSPS();
+    await navigator.clipboard.writeText(s);
+    alert('Sintaxis copiada al portapapeles (' + s.length + ' caracteres). Pégala en un archivo .sps');
+  } catch (e) {
+    // Fallback: mostrar en modal para copia manual
+    const w = window.open('', '_blank');
+    w.document.write('<pre>' + s.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</pre>');
+  }
+});
