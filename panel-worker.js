@@ -997,7 +997,7 @@ self.onmessage = function(e) {
   try {
     if (type === 'cfa') {
       const { Scov, n } = payload;
-      const cfa = cfaEstimate(Scov, n, 120, 0.005);
+      const cfa = cfaEstimate(Scov, n, 300, 0.005);
       self.postMessage({ type: 'cfa', ok: true, result: {
         converged: cfa.converged, chi2: cfa.chi2, df: cfa.df, p: cfa.p,
         cfi: cfa.cfi, tli: cfa.tli, rmsea: cfa.rmsea,
