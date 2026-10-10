@@ -407,21 +407,32 @@ function render(db) {
 function descargar(nombre, contenido, tipo) {
   try {
     const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = nombre;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    // Fallback para móviles: si no descarga, abrir en nueva pestaña
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 5000);
+    // En móvil, usar Web Share API si está disponible (más fiable que clic programático)
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], nombre, { type: blob.type })] })) {
+      const file = new File([blob], nombre, { type: blob.type });
+      navigator.share({ files: [file], title: nombre }).catch(() => {
+        // Si el usuario cancela el share, fallback a descarga tradicional
+        descargaTradicional(nombre, blob);
+      });
+    } else {
+      descargaTradicional(nombre, blob);
+    }
   } catch (e) {
     alert('Error al descargar: ' + e.message);
   }
+}
+function descargaTradicional(nombre, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    if (a.parentNode) document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 5000);
 }
 
 function exportCSV() {
@@ -773,30 +784,18 @@ async function buildDocBlob() {
   return new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
 }
 document.getElementById('btn-word').addEventListener('click', async () => {
-  alert('DEBUG: btn-word clic detectado');
   const btn = document.getElementById('btn-word');
   const origText = btn.textContent;
   btn.disabled = true; btn.textContent = 'Generando…';
   try {
-    alert('DEBUG: antes de buildDocxBlob');
     await new Promise(r => setTimeout(r, 30));
     const blob = await buildDocxBlob();
-    alert('DEBUG: blob generado, tamaño=' + blob.size);
     descargar('informe-eya28.docx', blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    alert('DEBUG: descargar() llamado');
   } catch (e) {
-    alert('No se pudo generar el Word: ' + e.message + '\n' + e.stack);
+    alert('No se pudo generar el Word: ' + e.message);
   } finally {
     btn.disabled = false; btn.textContent = origText;
   }
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
-document.getElementById('btn-sps').addEventListener('click', () => {
-  alert('DEBUG: btn-sps clic detectado. DB=' + (typeof DB) + (DB ? ', validos=' + (DB.validos ? DB.validos.length : 'null') : ''));
-  try {
-    exportSPS();
-    alert('DEBUG: exportSPS() completado sin excepción');
-  } catch (e) {
-    alert('DEBUG: exportSPS lanzó: ' + e.message);
-  }
-});
+document.getElementById('btn-sps').addEventListener('click', exportSPS);
