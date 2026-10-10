@@ -891,7 +891,7 @@ document.getElementById('btn-sps').addEventListener('click', () => {
 const EMAILJS_CONFIG = {
   publicKey: '3AEIV7ha3CKfQh61j',
   serviceId: 'service_iq371lg',
-  templateId: 'template_aozfh9s'
+  templateId: 'template_52p5inc'
 };
 async function enviarPorCorreo() {
   if (!DB) { alert('Procesa primero una base de datos.'); return; }
