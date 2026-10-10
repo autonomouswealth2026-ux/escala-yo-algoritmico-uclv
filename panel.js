@@ -781,15 +781,7 @@ document.getElementById('btn-word').addEventListener('click', async () => {
   }
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
-document.getElementById('btn-sps').addEventListener('click', async () => {
-  if (!DB) { alert('Procesa primero una base de datos.'); return; }
-  try {
-    const s = generarSPS();
-    await navigator.clipboard.writeText(s);
-    alert('Sintaxis copiada al portapapeles (' + s.length + ' caracteres). Pégala en un archivo .sps');
-  } catch (e) {
-    // Fallback: mostrar en modal para copia manual
-    const w = window.open('', '_blank');
-    w.document.write('<pre>' + s.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</pre>');
-  }
+document.getElementById('btn-sps').addEventListener('click', () => {
+  if (!DB) return;
+  descargar('eya28_panel.sps', generarSPS(), 'text/csv;charset=utf-8');
 });
