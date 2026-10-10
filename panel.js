@@ -1098,47 +1098,19 @@ async function enviarPorCorreo() {
   if (!email) return;
   const btn = document.getElementById('btn-email');
   const orig = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
   try {
+    if (btn) { btn.disabled = true; btn.textContent = 'Preparando…'; }
     await esperarAnalisis();
-    // .sps
     const sps = generarSPS();
     const spsB64 = btoa(unescape(encodeURIComponent(sps)));
-    // .docx con generador nativo liviano
-    if (btn) btn.textContent = 'Generando Word…';
-    const txtReport = buildTextReport();
-    const secciones = [];
-    let secActual = { seccion: 'Resumen', filas: [] };
-    const lineas = txtReport.split('\n');
-    let tablaActual = [];
-    for (const ln of lineas) {
-      const t = ln.trim();
-      if (t.startsWith('## ')) {
-        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
-        if (secActual.filas.length || secActual.seccion !== 'Resumen') secciones.push(secActual);
-        secActual = { seccion: t.slice(3), filas: [] };
-      } else if (t.startsWith('### ')) {
-        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
-        secciones.push(secActual); secActual = { seccion: t.slice(4), filas: [] };
-      } else if (t.includes(' | ')) {
-        const celdas = t.split(' | ').map(x => x.trim());
-        if (!/^-+$/.test(celdas[0].replace(/-\+-/g,''))) tablaActual.push(celdas);
-      } else if (t && !t.match(/^[=\-]{10,}$/)) {
-        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
-        secActual.filas.push([t]);
-      }
-    }
-    if (tablaActual.length) secActual.filas = tablaActual;
-    secciones.push(secActual);
-    const docxBytes = generarDocx(secciones.filter(s => s.filas.length > 0), 'Informe EYA-28');
-    let docxB64 = '';
-    for (let i = 0; i < docxBytes.length; i++) docxB64 += String.fromCharCode(docxBytes[i]);
-    docxB64 = btoa(docxB64);
+    if (btn) btn.textContent = 'Extrayendo datos…';
+    // Extraer secciones de forma liviana (sin buildTextReport pesado)
+    const secs = extraerSecciones();
     if (btn) btn.textContent = 'Enviando…';
     await fetch('https://script.google.com/macros/s/AKfycbx1mbe0wuVl5HyLElnLDrhWqeuP1xxxRWtZqV0n-c4PGVf-kHGxqz_a2wDJzWxk1ZJQ/exec', {
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'informePro', to: email, spsB64, secciones: JSON.stringify(extraerSecciones()) })
+      body: JSON.stringify({ action: 'informePro', to: email, spsB64, secciones: JSON.stringify(secs) })
     });
     alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
   } catch (e) {
@@ -1147,6 +1119,7 @@ async function enviarPorCorreo() {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
 }
+
 
 // Extrae la definición del documento PDF para reutilizar en email
 function generarPDFDocDef() {
