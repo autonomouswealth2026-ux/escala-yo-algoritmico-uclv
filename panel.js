@@ -25,6 +25,9 @@ const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
 const variance = a => { const m = mean(a); return a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1); };
 const sd = a => Math.sqrt(variance(a));
 const f2 = n => (Math.round(n * 100) / 100).toFixed(2);
+const f1 = n => (Math.round(n * 10) / 10).toFixed(1);
+const f3 = n => (Math.round(n * 1000) / 1000).toFixed(3);
+const fmtP = p => p < 0.001 ? '< .001' : f3(p);
 
 // Alfa de Cronbach: α = (k/(k-1)) · (1 − Σσ²ᵢ/σ²ₜ)
 function cronbach(matrix) {
