@@ -405,34 +405,41 @@ function render(db) {
 
 /* ---------- exportaciones ---------- */
 function descargar(nombre, contenido, tipo) {
-  try {
-    const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
-    // En móvil, usar Web Share API si está disponible (más fiable que clic programático)
-    if (navigator.canShare && navigator.canShare({ files: [new File([blob], nombre, { type: blob.type })] })) {
-      const file = new File([blob], nombre, { type: blob.type });
-      navigator.share({ files: [file], title: nombre }).catch(() => {
-        // Si el usuario cancela el share, fallback a descarga tradicional
-        descargaTradicional(nombre, blob);
-      });
-    } else {
-      descargaTradicional(nombre, blob);
-    }
-  } catch (e) {
-    alert('Error al descargar: ' + e.message);
-  }
-}
-function descargaTradicional(nombre, blob) {
+  const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nombre;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    if (a.parentNode) document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 5000);
+  // Intentar Web Share API primero (mejor en móvil)
+  try {
+    if (navigator.share && navigator.canShare) {
+      const file = new File([blob], nombre, { type: blob.type || tipo });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: nombre }).then(() => {
+          URL.revokeObjectURL(url);
+        }).catch(() => {
+          // Usuario canceló o falló: descarga tradicional
+          descargaTradicional(nombre, url);
+        });
+        return;
+      }
+    }
+  } catch (e) { /* ignorar, usar fallback */ }
+  descargaTradicional(nombre, url);
+}
+function descargaTradicional(nombre, url) {
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      if (a.parentNode) document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 10000);
+  } catch (e) {
+    // Último recurso: abrir en nueva pestaña
+    window.open(url, '_blank');
+  }
 }
 
 function exportCSV() {
