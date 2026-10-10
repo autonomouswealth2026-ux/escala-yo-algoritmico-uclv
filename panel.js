@@ -479,6 +479,199 @@ function buildDocx(files) {
   for (const ch of chunks) { out.set(ch, pos); pos += ch.length; }
   return out;
 }
+
+// ===== Cargador dinámico de librerías de informes =====
+async function loadLib(url, globalName) {
+  if (window[globalName]) return window[globalName];
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = url; s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar ' + url));
+    document.head.appendChild(s);
+  });
+  return window[globalName];
+}
+async function ensurePdfMake() {
+  if (!window.pdfMake) {
+    await loadLib('https://cdn.jsdelivr.net/npm/pdfmake@0.2.18/build/pdfmake.min.js', 'pdfMake');
+    await loadLib('https://cdn.jsdelivr.net/npm/pdfmake@0.2.18/build/vfs_fonts.js', 'pdfMake');
+  }
+  return window.pdfMake;
+}
+async function ensureDocx() {
+  if (!window.docx) {
+    await loadLib('https://cdn.jsdelivr.net/npm/docx@9.5.1/dist/index.iife.js', 'docx');
+  }
+  return window.docx;
+}
+
+
+// ===== Generador PDF profesional (pdfmake) =====
+async function generarPDFProfesional() {
+  const btn = document.getElementById('btn-pdf');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando PDF…'; }
+  try {
+    const pdfMake = await ensurePdfMake();
+    // Esperar secciones asíncronas
+    await esperarAnalisis();
+    const host = document.getElementById('p-out');
+    const title = document.getElementById('p-title').textContent;
+    
+    const SLATE = '#1E293B', BLUE = '#2563EB', LIGHT = '#F8FAFC', GRAY = '#64748B';
+    
+    const content = [
+      // Portada
+      { text: 'INFORME EYA-28', style: 'portada', margin: [0, 60, 0, 8] },
+      { text: 'Escala del Yo Algorítmico', style: 'subportada', margin: [0, 0, 0, 20] },
+      { text: title, style: 'titulo2', margin: [0, 0, 0, 8] },
+      { text: 'Generado: ' + new Date().toLocaleString('es-ES'), style: 'muted', margin: [0, 0, 0, 4] },
+      { text: 'Universidad Central "Marta Abreu" de Las Villas · Carrera de Psicología', style: 'muted', margin: [0, 0, 0, 30] },
+      { text: '', pageBreak: 'after' },
+    ];
+    
+    // Recorrer secciones
+    host.querySelectorAll('.sec').forEach(sec => {
+      const h3 = sec.querySelector('h3');
+      if (h3) {
+        content.push({ text: h3.textContent.trim(), style: 'seccion', margin: [0, 16, 0, 8] });
+      }
+      sec.querySelectorAll(':scope > h4').forEach(h4 => {
+        content.push({ text: h4.textContent.trim(), style: 'subseccion', margin: [0, 10, 0, 4] });
+      });
+      sec.querySelectorAll(':scope > p').forEach(p => {
+        const t = p.textContent.trim();
+        if (t && !t.includes('Calculando') && !t.includes('Entrenando')) {
+          content.push({ text: t, style: 'parrafo', margin: [0, 2, 0, 4] });
+        }
+      });
+      // Tablas con pdfmake (cabeceras repetidas, filas no partibles)
+      sec.querySelectorAll(':scope table').forEach(tbl => {
+        const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
+          Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
+        if (!rows.length) return;
+        const headerRow = rows[0].map(h => ({ text: h, style: 'th' }));
+        const bodyRows = rows.slice(1).map(r => r.map(cell => ({ text: cell, style: 'td' })));
+        content.push({
+          table: { headerRows: 1, widths: Array(rows[0].length).fill('*'), body: [headerRow, ...bodyRows] },
+          layout: {
+            fillColor: (ri) => ri === 0 ? SLATE : (ri % 2 === 0 ? LIGHT : null),
+            hLineColor: () => '#94A3B8', vLineColor: () => '#94A3B8',
+          },
+          margin: [0, 8, 0, 12],
+        });
+      });
+    });
+    
+    const docDef = {
+      content,
+      styles: {
+        portada: { fontSize: 28, bold: true, color: SLATE, alignment: 'center' },
+        subportada: { fontSize: 16, color: BLUE, alignment: 'center' },
+        titulo2: { fontSize: 13, bold: true, color: SLATE, alignment: 'center' },
+        muted: { fontSize: 9, color: GRAY, alignment: 'center' },
+        seccion: { fontSize: 14, bold: true, color: '#FFFFFF', background: BLUE, margin: [0,0,0,0] },
+        subseccion: { fontSize: 12, bold: true, color: BLUE },
+        parrafo: { fontSize: 10, color: SLATE },
+        th: { fontSize: 9, bold: true, color: '#FFFFFF' },
+        td: { fontSize: 9, color: SLATE },
+      },
+      defaultStyle: { font: 'Roboto' },
+      footer: (cp, pc) => ({ text: `Página ${cp} de ${pc} · EYA-28`, alignment: 'center', fontSize: 8, color: GRAY, margin: [0, 10, 0, 0] }),
+    };
+    pdfMake.createPdf(docDef).download('informe-eya28.pdf');
+  } catch (e) {
+    alert('Error al generar PDF: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+// Barrera asíncrona: espera MLP, post-hoc, MANOVA
+async function esperarAnalisis() {
+  for (let i = 0; i < 30; i++) {
+    const mlp = document.getElementById('mlp-status');
+    const ph = document.getElementById('posthoc-tables');
+    const mv = document.getElementById('multiv-result');
+    const done = (!mlp || !mlp.textContent.includes('Entrenando'))
+      && (!ph || !ph.textContent.includes('Calculando'))
+      && (!mv || !mv.textContent.includes('Calculando'));
+    if (done) return;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+}
+
+
+// ===== Generador Word profesional (librería docx) =====
+async function generarWordProfesional() {
+  const btn = document.getElementById('btn-word');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando Word…'; }
+  try {
+    const DX = await ensureDocx();
+    await esperarAnalisis();
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+            HeadingLevel, AlignmentType, ShadingType, WidthType } = DX;
+    const host = document.getElementById('p-out');
+    const title = document.getElementById('p-title').textContent;
+    
+    const children = [
+      new Paragraph({ heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: 'INFORME EYA-28', bold: true, color: '1E293B', size: 56 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: 'Escala del Yo Algorítmico', color: '2563EB', size: 28 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: title, bold: true, size: 22 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: 'Generado: ' + new Date().toLocaleString('es-ES'), color: '64748B', size: 18 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: 'Universidad Central "Marta Abreu" de Las Villas · Psicología', color: '64748B', size: 18 })] }),
+    ];
+    
+    host.querySelectorAll('.sec').forEach(sec => {
+      const h3 = sec.querySelector('h3');
+      if (h3) {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_1,
+          children: [new TextRun({ text: h3.textContent.trim(), bold: true, color: 'FFFFFF', size: 26 })],
+          shading: { type: ShadingType.CLEAR, fill: '2563EB' },
+        }));
+      }
+      sec.querySelectorAll(':scope > h4').forEach(h4 => {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_2,
+          children: [new TextRun({ text: h4.textContent.trim(), bold: true, color: '2563EB', size: 24 })] }));
+      });
+      sec.querySelectorAll(':scope > p').forEach(p => {
+        const t = p.textContent.trim();
+        if (t && !t.includes('Calculando') && !t.includes('Entrenando')) {
+          children.push(new Paragraph({ children: [new TextRun({ text: t, size: 20 })] }));
+        }
+      });
+      sec.querySelectorAll(':scope table').forEach(tbl => {
+        const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
+          Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
+        if (!rows.length) return;
+        const tableRows = rows.map((r, ri) => new TableRow({
+          cantSplit: true,
+          tableHeader: ri === 0,
+          children: r.map(cell => new TableCell({
+            shading: { type: ShadingType.CLEAR, fill: ri === 0 ? '1E293B' : (ri % 2 === 0 ? 'F8FAFC' : 'FFFFFF') },
+            children: [new Paragraph({ children: [
+              new TextRun({ text: cell, bold: ri === 0, color: ri === 0 ? 'FFFFFF' : '1E293B', size: 18 })
+            ]})],
+          })),
+        }));
+        children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows }));
+      });
+    });
+    
+    const doc = new Document({ sections: [{ children }] });
+    const blob = await Packer.toBlob(doc);
+    descargar('informe-eya28.docx', blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  } catch (e) {
+    alert('Error al generar Word: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
 function generarDocx(rows, title) {
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   // Paleta profesional: Slate 800 #1E293B, Royal Blue #2563EB, Slate 50 #F8FAFC
@@ -696,62 +889,7 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
   setTimeout(() => { btn.textContent = 'Copiar informe'; }, 2500);
 });
 /* ---------- descargar PDF (vía impresión) ---------- */
-document.getElementById('btn-pdf').addEventListener('click', () => {
-  const btn = document.getElementById('btn-pdf');
-  btn.textContent = 'Preparando…';
-  try {
-    const title = document.getElementById('p-title').textContent;
-    const host = document.getElementById('p-out');
-    const printWin = window.open('', '_blank');
-    if (!printWin) {
-      alert('Permite ventanas emergentes para generar el PDF');
-      btn.textContent = 'Descargar PDF';
-      return;
-    }
-    let body = '<h1>Informe EYA-28</h1><p>' + title + ' · ' + new Date().toLocaleString('es-ES') + '</p>';
-    host.querySelectorAll('.sec').forEach(sec => {
-      const h3 = sec.querySelector('h3');
-      if (h3) body += '<h2>' + h3.textContent.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</h2>';
-      sec.querySelectorAll(':scope > h4, :scope > p').forEach(el => {
-        const t = el.textContent.trim();
-        if (!t) return;
-        const tag = el.tagName === 'H4' ? 'h3' : 'p';
-        body += `<${tag}>${t.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</${tag}>`;
-      });
-      sec.querySelectorAll(':scope table').forEach(tbl => {
-        body += '<table>';
-        tbl.querySelectorAll('tr').forEach(tr => {
-          body += '<tr>';
-          tr.querySelectorAll('th,td').forEach(cell => {
-            const tag = cell.tagName.toLowerCase();
-            body += `<${tag}>${cell.textContent.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;')}</${tag}>`;
-          });
-          body += '</tr>';
-        });
-        body += '</table>';
-      });
-    });
-    printWin.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe EYA-28</title>' +
-      '<style>'
-      + 'body{font-family:Arial,sans-serif;font-size:10pt;margin:40px;color:#1E293B;line-height:1.5}'
-      + 'h1{color:#FFFFFF;background:#1E293B;padding:16px;font-size:20pt;margin:0 0 8px 0}'
-      + 'h2{color:#FFFFFF;background:#2563EB;padding:10px 12px;font-size:13pt;margin-top:24px;page-break-after:avoid}'
-      + 'h3{color:#2563EB;font-size:11pt;margin-top:16px;page-break-after:avoid}'
-      + 'table{border-collapse:collapse;margin:12px 0;width:100%;page-break-inside:avoid}'
-      + 'tr{page-break-inside:avoid}'
-      + 'th,td{border:1px solid #94A3B8;padding:5px 8px;text-align:left;font-size:9pt}'
-      + 'th{background:#1E293B;color:#FFFFFF}'
-      + 'tr:nth-child(even) td{background:#F8FAFC}'
-      + 'p{margin:5px 0}'
-      + '.cover{background:#EFF6FF;border:2px solid #2563EB;padding:20px;margin-bottom:20px}'
-      + '</style>' +
-      '</head><body>' + body + '<script>window.onload=function(){setTimeout(function(){window.print();},500);}<\/script></body></html>');
-    printWin.document.close();
-  } catch (e) {
-    alert('Error al generar PDF: ' + e.message);
-  }
-  btn.textContent = 'Descargar PDF';
-});
+document.getElementById('btn-pdf').addEventListener('click', generarPDFProfesional);
 /* ---------- descargar Word (.doc y .docx) — VERSIÓN CON TABLAS ---------- */
 function wordHtmlContent() {
   const title = document.getElementById('p-title').textContent;
@@ -922,20 +1060,7 @@ async function buildDocBlob() {
   const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">' + wordHtmlContent() + '</body></html>';
   return new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
 }
-document.getElementById('btn-word').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-word');
-  const origText = btn.textContent;
-  btn.disabled = true; btn.textContent = 'Generando…';
-  try {
-    await new Promise(r => setTimeout(r, 30));
-    const blob = await buildDocBlob();
-    descargar('informe-eya28.doc', blob, 'application/msword;charset=utf-8');
-  } catch (e) {
-    alert('No se pudo generar el Word: ' + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = origText;
-  }
-});
+document.getElementById('btn-word').addEventListener('click', generarWordProfesional);
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', () => {
   if (!DB) return;
@@ -949,59 +1074,37 @@ async function enviarPorCorreo() {
   if (!email) return;
   const btn = document.getElementById('btn-email');
   const orig = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
   try {
-    // Esperar a que terminen las secciones asíncronas (MLP, post-hoc, MANOVA)
-    if (btn) btn.textContent = 'Esperando análisis…';
-    let intentos = 0;
-    while (intentos < 30) {
-      const mlpDone = !document.getElementById('mlp-status') || 
-        !document.getElementById('mlp-status').textContent.includes('Entrenando');
-      const phDone = !document.getElementById('posthoc-tables') ||
-        !document.getElementById('posthoc-tables').textContent.includes('Calculando');
-      const mvDone = !document.getElementById('multiv-result') ||
-        !document.getElementById('multiv-result').textContent.includes('Calculando');
-      if (mlpDone && phDone && mvDone) break;
-      await new Promise(r => setTimeout(r, 1000));
-      intentos++;
-    }
-    if (btn) btn.textContent = 'Generando archivos…';
+    await esperarAnalisis();
+    if (btn) btn.textContent = 'Generando PDF…';
+    // Generar PDF con pdfmake
+    const pdfMake = await ensurePdfMake();
+    const pdfBlob = await new Promise((res, rej) => {
+      try {
+        const gen = generarPDFDocDef();
+        pdfMake.createPdf(gen).getBlob(res);
+      } catch (e) { rej(e); }
+    });
+    if (btn) btn.textContent = 'Generando Word…';
+    // Generar DOCX con librería docx
+    const DX = await ensureDocx();
+    const docxBlob = await generarDocxBlob(DX);
+    if (btn) btn.textContent = 'Enviando…';
+    // Convertir a base64
+    const toB64 = (blob) => new Promise((res) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.readAsDataURL(blob);
+    });
+    const pdfB64 = await toB64(pdfBlob);
+    const docxB64 = await toB64(docxBlob);
     const sps = generarSPS();
     const spsB64 = btoa(unescape(encodeURIComponent(sps)));
-    // Generar .docx con el informe COMPLETO del panel
-    const txtReport = buildTextReport();
-    const secciones = [];
-    let secActual = { seccion: 'Resumen', filas: [] };
-    const lineas = txtReport.split('\n');
-    let tablaActual = [];
-    for (const ln of lineas) {
-      const t = ln.trim();
-      if (t.startsWith('## ')) {
-        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
-        if (secActual.filas.length || secActual.seccion !== 'Resumen') secciones.push(secActual);
-        secActual = { seccion: t.slice(3), filas: [] };
-      } else if (t.startsWith('### ')) {
-        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
-        secciones.push(secActual); secActual = { seccion: t.slice(4), filas: [] };
-      } else if (t.includes(' | ')) {
-        const celdas = t.split(' | ').map(x => x.trim());
-        if (!/^-+$/.test(celdas[0].replace(/-\+-/g,''))) tablaActual.push(celdas);
-      } else if (t && !t.match(/^[=\-]{10,}$/)) {
-        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
-        if (secActual.filas.length === 0) secActual.filas.push([t]); else secActual.filas.push([t]);
-      }
-    }
-    if (tablaActual.length) secActual.filas = tablaActual;
-    secciones.push(secActual);
-    const docxBytes = generarDocx(secciones.filter(s => s.filas.length > 0), 'Informe EYA-28');
-    let docxB64 = '';
-    for (let i = 0; i < docxBytes.length; i++) docxB64 += String.fromCharCode(docxBytes[i]);
-    docxB64 = btoa(docxB64);
-    const resp = await fetch('https://script.google.com/macros/s/AKfycbzXw9YuiVpb2xTgZ_KPHrUy5T8CZvH_tvL6rwwFZ7aozH9-OU9I5Bki4ovMkMyw5V73/exec', {
-      method: 'POST',
-      mode: 'no-cors',
+    const resp = await fetch('https://script.google.com/macros/s/AKfycbyFkdc4DH1Y3xVXjeMTFWSE1Ru7zqhvjiNRu6qYDZoIBavk0WvX6fOKbSlapufILdCx/exec', {
+      method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'sendFiles', to: email, spsB64, docxB64 })
+      body: JSON.stringify({ action: 'sendFilesPro', to: email, spsB64, pdfB64, docxB64 })
     });
     alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
   } catch (e) {
@@ -1010,4 +1113,111 @@ async function enviarPorCorreo() {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
 }
+// Extrae la definición del documento PDF para reutilizar en email
+function generarPDFDocDef() {
+  const host = document.getElementById('p-out');
+  const title = document.getElementById('p-title').textContent;
+  const SLATE = '#1E293B', BLUE = '#2563EB', LIGHT = '#F8FAFC', GRAY = '#64748B';
+  const content = [
+    { text: 'INFORME EYA-28', style: 'portada', margin: [0, 60, 0, 8] },
+    { text: 'Escala del Yo Algorítmico', style: 'subportada', margin: [0, 0, 0, 20] },
+    { text: title, style: 'titulo2', margin: [0, 0, 0, 8] },
+    { text: 'Generado: ' + new Date().toLocaleString('es-ES'), style: 'muted', margin: [0, 0, 0, 4] },
+    { text: 'Universidad Central "Marta Abreu" de Las Villas · Carrera de Psicología', style: 'muted', margin: [0, 0, 0, 30] },
+    { text: '', pageBreak: 'after' },
+  ];
+  host.querySelectorAll('.sec').forEach(sec => {
+    const h3 = sec.querySelector('h3');
+    if (h3) content.push({ text: h3.textContent.trim(), style: 'seccion', margin: [0, 16, 0, 8] });
+    sec.querySelectorAll(':scope > h4').forEach(h4 => {
+      content.push({ text: h4.textContent.trim(), style: 'subseccion', margin: [0, 10, 0, 4] });
+    });
+    sec.querySelectorAll(':scope > p').forEach(p => {
+      const t = p.textContent.trim();
+      if (t && !t.includes('Calculando') && !t.includes('Entrenando')) {
+        content.push({ text: t, style: 'parrafo', margin: [0, 2, 0, 4] });
+      }
+    });
+    sec.querySelectorAll(':scope table').forEach(tbl => {
+      const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
+        Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
+      if (!rows.length) return;
+      const headerRow = rows[0].map(h => ({ text: h, style: 'th' }));
+      const bodyRows = rows.slice(1).map(r => r.map(cell => ({ text: cell, style: 'td' })));
+      content.push({
+        table: { headerRows: 1, widths: Array(rows[0].length).fill('*'), body: [headerRow, ...bodyRows] },
+        layout: { fillColor: (ri) => ri === 0 ? SLATE : (ri % 2 === 0 ? LIGHT : null),
+          hLineColor: () => '#94A3B8', vLineColor: () => '#94A3B8' },
+        margin: [0, 8, 0, 12],
+      });
+    });
+  });
+  return {
+    content,
+    styles: {
+      portada: { fontSize: 28, bold: true, color: SLATE, alignment: 'center' },
+      subportada: { fontSize: 16, color: BLUE, alignment: 'center' },
+      titulo2: { fontSize: 13, bold: true, color: SLATE, alignment: 'center' },
+      muted: { fontSize: 9, color: GRAY, alignment: 'center' },
+      seccion: { fontSize: 14, bold: true, color: '#FFFFFF', background: BLUE },
+      subseccion: { fontSize: 12, bold: true, color: BLUE },
+      parrafo: { fontSize: 10, color: SLATE },
+      th: { fontSize: 9, bold: true, color: '#FFFFFF' },
+      td: { fontSize: 9, color: SLATE },
+    },
+    defaultStyle: { font: 'Roboto' },
+    footer: (cp, pc) => ({ text: `Página ${cp} de ${pc} · EYA-28`, alignment: 'center', fontSize: 8, color: GRAY, margin: [0, 10, 0, 0] }),
+  };
+}
+// Genera el blob DOCX para email
+async function generarDocxBlob(DX) {
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+          HeadingLevel, AlignmentType, ShadingType, WidthType } = DX;
+  const host = document.getElementById('p-out');
+  const title = document.getElementById('p-title').textContent;
+  const children = [
+    new Paragraph({ heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: 'INFORME EYA-28', bold: true, color: '1E293B', size: 56 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: 'Escala del Yo Algorítmico', color: '2563EB', size: 28 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: title, bold: true, size: 22 })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: 'Generado: ' + new Date().toLocaleString('es-ES'), color: '64748B', size: 18 })] }),
+  ];
+  host.querySelectorAll('.sec').forEach(sec => {
+    const h3 = sec.querySelector('h3');
+    if (h3) children.push(new Paragraph({ heading: HeadingLevel.HEADING_1,
+      children: [new TextRun({ text: h3.textContent.trim(), bold: true, color: 'FFFFFF', size: 26 })],
+      shading: { type: ShadingType.CLEAR, fill: '2563EB' } }));
+    sec.querySelectorAll(':scope > h4').forEach(h4 => {
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_2,
+        children: [new TextRun({ text: h4.textContent.trim(), bold: true, color: '2563EB', size: 24 })] }));
+    });
+    sec.querySelectorAll(':scope > p').forEach(p => {
+      const t = p.textContent.trim();
+      if (t && !t.includes('Calculando') && !t.includes('Entrenando')) {
+        children.push(new Paragraph({ children: [new TextRun({ text: t, size: 20 })] }));
+      }
+    });
+    sec.querySelectorAll(':scope table').forEach(tbl => {
+      const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
+        Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
+      if (!rows.length) return;
+      const tableRows = rows.map((r, ri) => new TableRow({
+        cantSplit: true, tableHeader: ri === 0,
+        children: r.map(cell => new TableCell({
+          shading: { type: ShadingType.CLEAR, fill: ri === 0 ? '1E293B' : (ri % 2 === 0 ? 'F8FAFC' : 'FFFFFF') },
+          children: [new Paragraph({ children: [
+            new TextRun({ text: cell, bold: ri === 0, color: ri === 0 ? 'FFFFFF' : '1E293B', size: 18 })
+          ]})],
+        })),
+      }));
+      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows }));
+    });
+  });
+  const doc = new Document({ sections: [{ children }] });
+  return await Packer.toBlob(doc);
+}
+
 
