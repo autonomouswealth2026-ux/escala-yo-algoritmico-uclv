@@ -768,8 +768,19 @@ async function buildDocBlob() {
   const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">' + wordHtmlContent() + '</body></html>';
   return new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
 }
-document.getElementById('btn-word').addEventListener('click', () => {
-  descargar('prueba-word.doc', 'Contenido de prueba', 'text/plain;charset=utf-8');
+document.getElementById('btn-word').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-word');
+  const origText = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Generando…';
+  try {
+    await new Promise(r => setTimeout(r, 30));
+    const blob = await buildDocBlob();
+    descargar('informe-eya28.doc', blob, 'text/plain;charset=utf-8');
+  } catch (e) {
+    alert('No se pudo generar el Word: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = origText;
+  }
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', exportSPS);
