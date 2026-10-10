@@ -769,7 +769,7 @@ async function buildDocBlob() {
   return new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
 }
 document.getElementById('btn-word').addEventListener('click', () => {
-  descargar('prueba-word.doc', 'Contenido de prueba', 'application/msword;charset=utf-8');
+  descargar('prueba-word.doc', 'Contenido de prueba', 'text/plain;charset=utf-8');
 });
 document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', exportSPS);
