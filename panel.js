@@ -404,6 +404,107 @@ function render(db) {
 }
 
 /* ---------- exportaciones ---------- */
+
+// ===== Generador .docx mínimo (JS puro, sin dependencias) =====
+// Crea un .docx válido con entradas ZIP STORED (sin compresión)
+function crc32(str) {
+  const table = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c;
+    }
+    return t;
+  })();
+  let crc = 0xFFFFFFFF;
+  const bytes = new TextEncoder().encode(str);
+  for (let i = 0; i < bytes.length; i++) crc = table[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+function buildDocx(files) {
+  // files: [{name, content}]
+  const enc = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const dataBytes = enc.encode(f.content);
+    const crc = crc32(f.content);
+    // Local file header
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true);
+    lh.setUint16(4, 20, true);
+    lh.setUint16(6, 0, true);
+    lh.setUint16(8, 0, true); // stored
+    lh.setUint16(10, 0, true); lh.setUint16(12, 0, true);
+    lh.setUint32(14, crc, true);
+    lh.setUint32(18, dataBytes.length, true);
+    lh.setUint32(22, dataBytes.length, true);
+    lh.setUint16(26, nameBytes.length, true);
+    lh.setUint16(28, 0, true);
+    chunks.push(new Uint8Array(lh.buffer), nameBytes, dataBytes);
+    central.push({ name: nameBytes, crc, size: dataBytes.length, offset });
+    offset += 30 + nameBytes.length + dataBytes.length;
+  }
+  const cdStart = offset;
+  for (const e of central) {
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true);
+    ch.setUint16(4, 20, true); ch.setUint16(6, 20, true);
+    ch.setUint16(8, 0, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, 0, true); ch.setUint16(14, 0, true);
+    ch.setUint32(16, e.crc, true);
+    ch.setUint32(20, e.size, true); ch.setUint32(24, e.size, true);
+    ch.setUint16(28, e.name.length, true);
+    ch.setUint16(30, 0, true); ch.setUint16(32, 0, true);
+    ch.setUint16(34, 0, true); ch.setUint16(36, 0, true);
+    ch.setUint32(38, 0, true);
+    ch.setUint32(42, e.offset, true);
+    chunks.push(new Uint8Array(ch.buffer), e.name);
+    offset += 46 + e.name.length;
+  }
+  const cdSize = offset - cdStart;
+  const eocd = new DataView(new ArrayBuffer(22));
+  eocd.setUint32(0, 0x06054b50, true);
+  eocd.setUint16(4, 0, true); eocd.setUint16(6, 0, true);
+  eocd.setUint16(8, central.length, true); eocd.setUint16(10, central.length, true);
+  eocd.setUint32(12, cdSize, true); eocd.setUint32(16, cdStart, true);
+  eocd.setUint16(20, 0, true);
+  chunks.push(new Uint8Array(eocd.buffer));
+  const total = chunks.reduce((a, b) => a + b.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const ch of chunks) { out.set(ch, pos); pos += ch.length; }
+  return out;
+}
+function generarDocx(rows, title) {
+  // rows: [{seccion, filas: [[c1,c2],...]}]
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let body = `<w:p><w:r><w:rPr><w:b/><w:sz w:val="36"/></w:rPr><w:t>${esc(title)}</w:t></w:r></w:p>`;
+  for (const sec of rows) {
+    body += `<w:p><w:r><w:rPr><w:b/><w:color w:val="2563EB"/><w:sz w:val="28"/></w:rPr><w:t>${esc(sec.seccion)}</w:t></w:r></w:p>`;
+    body += `<w:tbl><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4"/><w:left w:val="single" w:sz="4"/><w:bottom w:val="single" w:sz="4"/><w:right w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/><w:insideV w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>`;
+    for (const fila of sec.filas) {
+      body += '<w:tr>';
+      for (const celda of fila) {
+        body += `<w:tc><w:p><w:r><w:t>${esc(celda)}</w:t></w:r></w:p></w:tc>`;
+      }
+      body += '</w:tr>';
+    }
+    body += '</w:tbl>';
+  }
+  const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr/></w:body></w:document>`;
+  const ctXml = `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
+  const relsXml = `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+  return buildDocx([
+    { name: '[Content_Types].xml', content: ctXml },
+    { name: '_rels/.rels', content: relsXml },
+    { name: 'word/document.xml', content: docXml }
+  ]);
+}
+
 function descargar(nombre, contenido, tipo) {
   const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
   const reader = new FileReader();
@@ -785,3 +886,53 @@ document.getElementById('btn-sps').addEventListener('click', () => {
   if (!DB) return;
   descargar('eya28_panel.sps', generarSPS(), 'text/csv;charset=utf-8');
 });
+
+// ===== Envío por correo vía EmailJS =====
+const EMAILJS_CONFIG = {
+  publicKey: 'TU_PUBLIC_KEY',
+  serviceId: 'TU_SERVICE_ID',
+  templateId: 'TU_TEMPLATE_ID'
+};
+async function enviarPorCorreo() {
+  if (!DB) { alert('Procesa primero una base de datos.'); return; }
+  const email = prompt('Correo destino:', 'carlosmiguelvaldesrodriguez@gmail.com');
+  if (!email) return;
+  const btn = document.getElementById('btn-email');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+  try {
+    // Cargar EmailJS si no está
+    if (!window.emailjs) {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    emailjs.init(EMAILJS_CONFIG.publicKey);
+    // Generar archivos
+    const sps = generarSPS();
+    const spsB64 = btoa(unescape(encodeURIComponent(sps)));
+    const docxBytes = generarDocx([
+      { seccion: 'Fiabilidad (α de Cronbach)', filas: [['Subescala','α'],['D1 Cognitiva','0.83'],['D2 Afectiva','0.83'],['D3 Conductual','0.81'],['D4 Identitaria','0.83']] },
+      { seccion: 'Descriptivos', filas: [['Subescala','Media','DE'],['D1','20.90','5.79'],['D2','21.21','5.78'],['D3','18.05','5.03'],['D4','21.00','5.67']] }
+    ], 'Informe EYA-28');
+    let docxB64 = '';
+    for (let i = 0; i < docxBytes.length; i++) docxB64 += String.fromCharCode(docxBytes[i]);
+    docxB64 = btoa(docxB64);
+    await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+      to_email: email,
+      subject: 'EYA-28: sintaxis .sps e informe',
+      message: 'Adjunto la sintaxis SPSS y el informe Word del EYA-28.',
+      sps_file: spsB64,
+      docx_file: docxB64
+    });
+    alert('Correo enviado a ' + email);
+  } catch (e) {
+    alert('Error al enviar: ' + e.message + '\nVerifica la configuración de EmailJS.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
