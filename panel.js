@@ -429,8 +429,10 @@ function exportCSV() {
 }
 
 function exportSPS() {
+  document.title = 'SPS: inicio';
   if (!DB) { alert('Procesa primero una base de datos para generar la sintaxis.'); return; }
   try {
+  document.title = 'SPS: generando';
   let s = `* EYA-28 · Sintaxis generada automáticamente por el panel del investigador.\n` +
     `* n válido = ${DB.nValidos} de ${DB.total} casos importados.\n` +
     `* Los datos ya vienen procesados en el CSV limpio; esta sintaxis reproduce\n` +
