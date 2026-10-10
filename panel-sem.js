@@ -217,6 +217,8 @@ function cfaEstimate(S, n, maxIter = 300, lr = 0.01) {
     tli: Math.max(0, Math.min(1, tli)),
     rmsea: Math.min(rmsea, 1),
     srmr,
+    aic: chi2 + 2 * nFree,
+    bic: chi2 + nFree * Math.log(n),
     loadings: theta.slice(0, p),
     factorCorrs: theta.slice(p, p + nCorr),
     converged: Fmin < 1e9
@@ -458,7 +460,7 @@ if (typeof window !== 'undefined') {
         `CFI = <strong>${f3(cfa.cfi)}</strong> · TLI = <strong>${f3(cfa.tli)}</strong><br>` +
         `RMSEA = <strong>${f3(cfa.rmsea)}</strong> · SRMR = <strong>${f3(cfa.srmr)}</strong><br>` +
         `<span class="muted">AIC = ${f1(cfa.aic)} · BIC = ${f1(cfa.bic)} · ${cfa.converged ? 'convergió' : 'límite de iteraciones'}</span>`;
-      if (cs) cs.innerHTML = '<p class="muted">Modelo estimado (120 iteraciones, ML).</p>';
+      if (cs) cs.innerHTML = '<p class="muted">Modelo estimado (300 iteraciones, ML).</p>';
     }
     function showMlp(r2, nn) {
       const mr = document.getElementById('mlp-result');
