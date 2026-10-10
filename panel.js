@@ -407,39 +407,15 @@ function render(db) {
 function descargar(nombre, contenido, tipo) {
   const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
   const url = URL.createObjectURL(blob);
-  // Intentar Web Share API primero (mejor en móvil)
-  try {
-    if (navigator.share && navigator.canShare) {
-      const file = new File([blob], nombre, { type: blob.type || tipo });
-      if (navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: nombre }).then(() => {
-          URL.revokeObjectURL(url);
-        }).catch(() => {
-          // Usuario canceló o falló: descarga tradicional
-          descargaTradicional(nombre, url);
-        });
-        return;
-      }
-    }
-  } catch (e) { /* ignorar, usar fallback */ }
-  descargaTradicional(nombre, url);
-}
-function descargaTradicional(nombre, url) {
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = nombre;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      if (a.parentNode) document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 10000);
-  } catch (e) {
-    // Último recurso: abrir en nueva pestaña
-    window.open(url, '_blank');
-  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    if (a.parentNode) document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 10000);
 }
 
 function exportCSV() {
@@ -471,7 +447,7 @@ function exportSPS() {
     s += `RELIABILITY\n  /VARIABLES=${ESCALAS[esc].join(' ')}\n  /SCALE('${esc}') ALL\n  /MODEL=ALPHA\n  /STATISTICS=DESCRIPTIVE CORR\n  /SUMMARY=TOTAL.\n\n`;
   }
   s += `DESCRIPTIVES VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL\n  /STATISTICS=MEAN STDDEV MIN MAX.\n`;
-  descargar('eya28_panel.sps', s, 'application/octet-stream');
+  descargar('eya28_panel.sps', s, 'text/plain;charset=utf-8');
   } catch (e) {
     alert('Error al generar la sintaxis: ' + e.message);
   }
