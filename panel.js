@@ -27,7 +27,40 @@ const sd = a => Math.sqrt(variance(a));
 const f2 = n => (Math.round(n * 100) / 100).toFixed(2);
 const f1 = n => (Math.round(n * 10) / 10).toFixed(1);
 const f3 = n => (Math.round(n * 1000) / 1000).toFixed(3);
-const fmtP = p => p < 0.001 ? '< .001' : f3(p);
+/* NOTA: fmtP se define en panel-tables.js (function fmtP). No duplicar aquí:
+   un 'const fmtP' en este archivo rompería el parseo de panel-tables.js
+   (SyntaxError: Identifier 'fmtP' has already been declared) y dejaría
+   sin definir spssTable, escHtml, renderCrosstab, etc. */
+
+/* spssTable + escHtml duplicados aquí como garantía de disponibilidad:
+   si panel-tables.js fallara al cargar, las secciones diferidas del panel
+   (post-hoc, multivariado) seguirían funcionando. function+function entre
+   scripts clásicos no genera SyntaxError; la última definición gana. */
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function spssTable(title, headers, rows, footnotes) {
+  let h = '<div class="spss-pivot">';
+  if (title) h += '<div class="spss-title">' + escHtml(title) + '</div>';
+  h += '<table class="spss-table"><thead><tr>';
+  headers.forEach((x, xi) => {
+    h += xi === 0 ? '<th class="rowlab">' + x + '</th>' : '<th>' + x + '</th>';
+  });
+  h += '</tr></thead><tbody>';
+  rows.forEach(r => {
+    h += '<tr>';
+    r.forEach((c, ci) => {
+      h += ci === 0 ? '<td class="rowlab">' + c + '</td>' : '<td>' + c + '</td>';
+    });
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+  if (footnotes && footnotes.length) {
+    h += '<div class="spss-notes">' + footnotes.map((f, i) =>
+      '<div><sup>' + String.fromCharCode(97 + i) + '</sup> ' + escHtml(f) + '</div>').join('') + '</div>';
+  }
+  return h + '</div>';
+}
 
 // Alfa de Cronbach: α = (k/(k-1)) · (1 − Σσ²ᵢ/σ²ₜ)
 function cronbach(matrix) {
@@ -404,7 +437,8 @@ function exportCSV() {
 }
 
 function exportSPS() {
-  if (!DB) return;
+  if (!DB) { alert('Procesa primero una base de datos para generar la sintaxis.'); return; }
+  try {
   let s = `* EYA-28 · Sintaxis generada automáticamente por el panel del investigador.\n` +
     `* n válido = ${DB.nValidos} de ${DB.total} casos importados.\n` +
     `* Los datos ya vienen procesados en el CSV limpio; esta sintaxis reproduce\n` +
@@ -422,6 +456,9 @@ function exportSPS() {
   }
   s += `DESCRIPTIVES VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL\n  /STATISTICS=MEAN STDDEV MIN MAX.\n`;
   descargar('eya28_panel.sps', s, 'text/plain;charset=utf-8');
+  } catch (e) {
+    alert('Error al generar la sintaxis: ' + e.message);
+  }
 }
 
 /* ---------- eventos ---------- */
@@ -669,34 +706,55 @@ function zipStore(files) {
   return out;
 }
 function escXml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function docxCellXml(text, isHeader) {
+  const shd = isHeader ? '<w:tcPr><w:shd w:val="clear" w:fill="EFF6FF"/></w:tcPr>' : '';
+  const b = isHeader ? '<w:b/>' : '';
+  return `<w:tc>${shd}<w:p><w:r>${b}<w:t xml:space="preserve">${escXml(text)}</w:t></w:r></w:p></w:tc>`;
+}
+function docxTableXml(tbl) {
+  const rows = Array.from(tbl.querySelectorAll('tr'));
+  if (!rows.length) return '';
+  const nCols = Math.max(1, ...rows.map(r => r.querySelectorAll('th,td').length));
+  const borderTags = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'];
+  let xml = '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>' +
+    borderTags.map(e => `<w:${e} w:val="single" w:sz="4" w:space="0" w:color="94A3B8"/>`).join('') +
+    '</w:tblBorders></w:tblPr><w:tblGrid>';
+  for (let i = 0; i < nCols; i++) xml += `<w:gridCol w:w="${Math.floor(9000 / nCols)}"/>`;
+  xml += '</w:tblGrid>';
+  rows.forEach(tr => {
+    xml += '<w:tr>';
+    tr.querySelectorAll('th,td').forEach(cell => {
+      xml += docxCellXml(cell.textContent.trim(), cell.tagName.toLowerCase() === 'th');
+    });
+    xml += '</w:tr>';
+  });
+  return xml + '</w:tbl>';
+}
 function htmlToDocxParagraphs(html) {
-  // Conversión simple: extrae texto de h1/h3/h4/p y tablas
+  // Convierte el HTML del informe a WordprocessingML preservando
+  // secciones, encabezados y TABLAS REALES (w:tbl), en orden de documento.
   const div = document.createElement('div');
   div.innerHTML = html;
   let xml = '';
-  const p = (t, style) => { xml += `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ''}<w:r><w:t xml:space="preserve">${escXml(t)}</w:t></w:r></w:p>`; };
-  div.childNodes.forEach(n => {
-    if (n.nodeType !== 1) return;
-    const tag = n.tagName.toLowerCase();
-    if (['h1', 'h2', 'h3'].includes(tag)) p(n.textContent.trim(), 'Heading1');
-    else if (tag === 'h4') p(n.textContent.trim(), 'Heading2');
-    else if (tag === 'p') p(n.textContent.trim());
-    else if (tag === 'div' && n.className.includes('sec')) {
-      n.childNodes.forEach(c => {
-        if (c.nodeType !== 1) return;
-        const ct = c.tagName.toLowerCase();
-        if (ct === 'h3') p(c.textContent.trim(), 'Heading1');
-        else if (ct === 'h4') p(c.textContent.trim(), 'Heading2');
-        else if (ct === 'p') p(c.textContent.trim());
-        else if (ct === 'table') {
-          xml += '<w:p><w:r><w:t xml:space="preserve">[Tabla — ver versión .doc para formato completo]</w:t></w:r></w:p>';
-          c.querySelectorAll('tr').forEach(tr => {
-            const cells = Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()).join(' | ');
-            p(cells);
-          });
-        }
-      });
+  const para = (t, bold) => {
+    if (!t) return;
+    xml += `<w:p><w:r>${bold ? '<w:b/>' : ''}<w:t xml:space="preserve">${escXml(t)}</w:t></w:r></w:p>`;
+  };
+  div.querySelectorAll('h1,h2,h3,h4,p,table').forEach(el => {
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'table') {
+      // Omitir tablas anidadas (ya incluidas en la exterior)
+      if (el.parentElement && el.parentElement.closest('table')) return;
+      xml += docxTableXml(el);
+      return;
     }
+    // Omitir texto que vive dentro de una tabla (ya va en celdas)
+    if (el.closest('table')) return;
+    const t = el.textContent.trim();
+    if (!t) return;
+    if (tag === 'h1' || tag === 'h2') para(t, true);
+    else if (tag === 'h3' || tag === 'h4') para(t, true);
+    else para(t);
   });
   return xml;
 }
@@ -710,21 +768,13 @@ function downloadDocx() {
     ['word/document.xml', docXml]
   ];
   const zip = zipStore(files);
-  const blob = new Blob([zip], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'informe-eya28.docx';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  // Usar descargar() compartida: mantiene el anchor en el DOM 5s (en Android
+  // un remove() sincrono tras click() puede cancelar la descarga).
+  descargar('informe-eya28.docx', zip, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
 }
 function downloadDoc() {
   const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">' + wordHtmlContent() + '</body></html>';
-  const blob = new Blob(['\ufeff' + html], { type: 'application/msword;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'informe-eya28.doc';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  descargar('informe-eya28.doc', '\ufeff' + html, 'application/msword;charset=utf-8');
 }
 document.getElementById('btn-word').addEventListener('click', () => {
   // Ofrecer .docx (moderno) y .doc (compatible)
