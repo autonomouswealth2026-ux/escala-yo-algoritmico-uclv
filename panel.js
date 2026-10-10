@@ -774,8 +774,8 @@ document.getElementById('btn-word').addEventListener('click', async () => {
   btn.disabled = true; btn.textContent = 'Generando…';
   try {
     await new Promise(r => setTimeout(r, 30));
-    const blob = await buildDocxBlob();
-    descargar('informe-eya28.docx', blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    const blob = await buildDocBlob();
+    descargar('informe-eya28.doc', blob, 'application/msword;charset=utf-8');
   } catch (e) {
     alert('No se pudo generar el Word: ' + e.message);
   } finally {
