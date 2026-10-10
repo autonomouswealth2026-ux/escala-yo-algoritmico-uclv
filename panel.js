@@ -1077,34 +1077,44 @@ async function enviarPorCorreo() {
   if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
   try {
     await esperarAnalisis();
-    if (btn) btn.textContent = 'Generando PDF…';
-    // Generar PDF con pdfmake
-    const pdfMake = await ensurePdfMake();
-    const pdfBlob = await new Promise((res, rej) => {
-      try {
-        const gen = generarPDFDocDef();
-        pdfMake.createPdf(gen).getBlob(res);
-      } catch (e) { rej(e); }
-    });
-    if (btn) btn.textContent = 'Generando Word…';
-    // Generar DOCX con librería docx
-    const DX = await ensureDocx();
-    const docxBlob = await generarDocxBlob(DX);
-    if (btn) btn.textContent = 'Enviando…';
-    // Convertir a base64
-    const toB64 = (blob) => new Promise((res) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
-      r.readAsDataURL(blob);
-    });
-    const pdfB64 = await toB64(pdfBlob);
-    const docxB64 = await toB64(docxBlob);
+    // .sps
     const sps = generarSPS();
     const spsB64 = btoa(unescape(encodeURIComponent(sps)));
-    const resp = await fetch('https://script.google.com/macros/s/AKfycbyFkdc4DH1Y3xVXjeMTFWSE1Ru7zqhvjiNRu6qYDZoIBavk0WvX6fOKbSlapufILdCx/exec', {
+    // .docx con generador nativo liviano
+    if (btn) btn.textContent = 'Generando Word…';
+    const txtReport = buildTextReport();
+    const secciones = [];
+    let secActual = { seccion: 'Resumen', filas: [] };
+    const lineas = txtReport.split('\n');
+    let tablaActual = [];
+    for (const ln of lineas) {
+      const t = ln.trim();
+      if (t.startsWith('## ')) {
+        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
+        if (secActual.filas.length || secActual.seccion !== 'Resumen') secciones.push(secActual);
+        secActual = { seccion: t.slice(3), filas: [] };
+      } else if (t.startsWith('### ')) {
+        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
+        secciones.push(secActual); secActual = { seccion: t.slice(4), filas: [] };
+      } else if (t.includes(' | ')) {
+        const celdas = t.split(' | ').map(x => x.trim());
+        if (!/^-+$/.test(celdas[0].replace(/-\+-/g,''))) tablaActual.push(celdas);
+      } else if (t && !t.match(/^[=\-]{10,}$/)) {
+        if (tablaActual.length) { secActual.filas = tablaActual; tablaActual = []; }
+        secActual.filas.push([t]);
+      }
+    }
+    if (tablaActual.length) secActual.filas = tablaActual;
+    secciones.push(secActual);
+    const docxBytes = generarDocx(secciones.filter(s => s.filas.length > 0), 'Informe EYA-28');
+    let docxB64 = '';
+    for (let i = 0; i < docxBytes.length; i++) docxB64 += String.fromCharCode(docxBytes[i]);
+    docxB64 = btoa(docxB64);
+    if (btn) btn.textContent = 'Enviando…';
+    await fetch('https://script.google.com/macros/s/AKfycbyFkdc4DH1Y3xVXjeMTFWSE1Ru7zqhvjiNRu6qYDZoIBavk0WvX6fOKbSlapufILdCx/exec', {
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'sendFilesPro', to: email, spsB64, pdfB64, docxB64 })
+      body: JSON.stringify({ action: 'sendFiles', to: email, spsB64, docxB64 })
     });
     alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
   } catch (e) {
@@ -1113,6 +1123,7 @@ async function enviarPorCorreo() {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
 }
+
 // Extrae la definición del documento PDF para reutilizar en email
 function generarPDFDocDef() {
   const host = document.getElementById('p-out');
