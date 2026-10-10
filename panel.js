@@ -406,16 +406,30 @@ function render(db) {
 /* ---------- exportaciones ---------- */
 function descargar(nombre, contenido, tipo) {
   const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo });
+  // Patrón FileSaver.js: usar msSaveOrOpenBlob en IE/Edge, sino anchor con download
+  if (navigator.msSaveOrOpenBlob) {
+    navigator.msSaveOrOpenBlob(blob, nombre);
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = nombre;
+  // FileSaver.js: el anchor DEBE estar visible y en el DOM (no display:none en algunos navegadores)
+  a.style.cssText = 'display:block;position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;';
   document.body.appendChild(a);
-  a.click();
+  // FileSaver.js: usar dispatchEvent en lugar de click() directo para mayor compatibilidad
+  if (typeof a.click === 'function') {
+    a.click();
+  } else {
+    const evt = document.createEvent('MouseEvents');
+    evt.initMouseEvent('click', true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+    a.dispatchEvent(evt);
+  }
   setTimeout(() => {
     if (a.parentNode) document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, 10000);
+  }, 4000);
 }
 
 function exportCSV() {
@@ -775,7 +789,7 @@ document.getElementById('btn-word').addEventListener('click', async () => {
   try {
     await new Promise(r => setTimeout(r, 30));
     const blob = await buildDocBlob();
-    descargar('informe-eya28.doc', blob, 'text/plain;charset=utf-8');
+    descargar('informe-eya28.doc', blob, 'application/msword;charset=utf-8');
   } catch (e) {
     alert('No se pudo generar el Word: ' + e.message);
   } finally {
