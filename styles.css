@@ -66,7 +66,8 @@ h2{font-size:1.25rem}
 }
 .likert button:active{transform:scale(.94)}
 .likert button[aria-pressed=true]{background:var(--sel);border-color:var(--acc);color:var(--acc-d)}
-.likert .num{display:block;font-size:1.05rem}
+.likert .num{display:flex;align-items:center;justify-content:center;font-size:1.05rem;font-weight:700;min-height:1.4rem}
+.likert .lab{display:flex;align-items:center;justify-content:center;flex:1}
 /* Micro-copy de transición */
 .transition-note{background:var(--sel);border:1px solid #BFDBFE;border-radius:var(--r);padding:1rem 1.2rem;margin-bottom:1rem;font-size:.95rem}
 /* Modal */
@@ -100,3 +101,23 @@ h2{font-size:1.25rem}
 .spss-table thead th{border-bottom:2px solid #333;background:#f2f2f2}
 .spss-table td.rowlab,.spss-table th.rowlab{text-align:left;font-weight:600;background:#fafafa}
 .spss-notes{font-size:.75rem;color:#555;margin-top:.3rem;line-height:1.5}
+
+/* ===== Optimización visual del panel del investigador (2026-10-09) ===== */
+.sec{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:1.25rem;margin-bottom:1.25rem;box-shadow:0 1px 3px rgba(30,41,59,.06)}
+.sec>h3{color:var(--acc-d);font-size:1.15rem;margin-bottom:.5rem;padding-bottom:.5rem;border-bottom:2px solid var(--sel);display:flex;align-items:center;gap:.5rem}
+.sec>h3::before{content:'';display:inline-block;width:4px;height:1.2em;background:var(--acc);border-radius:2px;flex-shrink:0}
+.sec h4{color:var(--ink);font-size:1rem;margin:1rem 0 .5rem;font-weight:700}
+.sec p{margin:.4rem 0;line-height:1.6}
+/* Tablas mejoradas */
+.sec table{border-collapse:collapse;width:100%;margin:.75rem 0;font-size:.9rem;background:#fff;box-shadow:0 1px 2px rgba(30,41,59,.04)}
+.sec thead th{background:var(--sel);color:var(--acc-d);font-weight:700;text-align:center;padding:.6rem .5rem;border:1px solid var(--line);font-size:.82rem}
+.sec tbody th{background:#F8FAFC;font-weight:600;text-align:left;padding:.5rem .6rem;border:1px solid var(--line);font-size:.88rem}
+.sec tbody td{padding:.5rem .6rem;border:1px solid var(--line);text-align:center;font-variant-numeric:tabular-nums}
+.sec tbody tr:nth-child(even){background:#FAFBFC}
+.sec tbody tr:hover{background:var(--sel)}
+/* Badges */
+.badge{display:inline-block;padding:.2rem .55rem;border-radius:999px;font-size:.78rem;font-weight:700;white-space:nowrap}
+.badge.ok{background:#DCFCE7;color:#166534}
+.badge.bad{background:#FEE2E2;color:#991B1B}
+/* Gráficos SVG */
+.sec svg{max-width:100%;height:auto;display:block;margin:.75rem auto;background:#fff;border:1px solid var(--line);border-radius:10px;padding:.75rem;box-shadow:0 1px 2px rgba(30,41,59,.04)}
