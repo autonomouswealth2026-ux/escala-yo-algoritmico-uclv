@@ -79,7 +79,7 @@ function renderModules() {
     let items = m.items.map(([code, stem]) => {
       const btns = LIKERT.map(([v, lab]) => {
         const pressed = S.ans[code] == v ? 'true' : 'false';
-        return `<button type="button" data-code="${code}" data-val="${v}" aria-pressed="${pressed}"><span class="num">${v}</span>${lab.replace(/\n/g, '<br>')}</button>`;
+        return `<button type="button" data-code="${code}" data-val="${v}" aria-pressed="${pressed}"><span class="num">${v}</span><span class="lab">${lab.replace(/\n/g, '<br>')}</span></button>`;
       }).join('');
       return `<div class="item" data-item="${code}"><p class="stem">${stem}</p><div class="likert" role="group" aria-label="${code}">${btns}</div></div>`;
     }).join('');
