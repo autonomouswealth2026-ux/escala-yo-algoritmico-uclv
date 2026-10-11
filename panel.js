@@ -1118,6 +1118,56 @@ function extraerSecciones() {
 }
 
 // Solicita el informe profesional generado por el asistente
+// Captura cada sección de resultados como imagen PNG (base64)
+// para réplica pixel-perfect en el informe.
+async function capturarSeccionesImagen() {
+  if (typeof html2canvas === 'undefined') {
+    console.warn('html2canvas no disponible');
+    return [];
+  }
+  const imagenes = [];
+  // Buscar el contenedor de resultados o las secciones
+  const contenedor = document.getElementById('resultados') ||
+                     document.querySelector('.resultados') ||
+                     document.getElementById('main-content');
+  if (!contenedor) {
+    console.warn('No se encontró contenedor de resultados');
+    return [];
+  }
+  // Capturar secciones individuales (cards o secciones)
+  const secciones = contenedor.querySelectorAll('.card, .seccion, section');
+  const elementos = secciones.length > 0 ? Array.from(secciones) : [contenedor];
+
+  for (let i = 0; i < elementos.length; i++) {
+    const el = elementos[i];
+    // Omitir elementos vacíos o muy pequeños
+    if (el.offsetHeight < 50) continue;
+    try {
+      const canvas = await html2canvas(el, {
+        scale: 1.5,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      // Comprimir a JPEG calidad 0.85 para reducir tamaño
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      // Solo incluir si no es demasiado grande (< 800KB por imagen)
+      if (dataUrl.length < 800000) {
+        imagenes.push({
+          indice: i,
+          titulo: (el.querySelector('h1,h2,h3') || {}).textContent || ('Sección ' + (i+1)),
+          data: dataUrl
+        });
+      }
+    } catch (e) {
+      console.warn('Error capturando sección ' + i + ':', e);
+    }
+    // Pequeña pausa para no saturar
+    await new Promise(r => setTimeout(r, 50));
+  }
+  return imagenes;
+}
+
 async function solicitarInformePro() {
   if (!DB) { mostrarAviso('warn', 'Sin datos', 'Procesa primero una base de datos.'); return; }
   const email = await new Promise((resolve) => {
@@ -1154,6 +1204,9 @@ async function solicitarInformePro() {
     const sps = generarSPS();
     // Captura HTML íntegro del panel para réplica pixel-perfect en PDF/DOCX
     const htmlCompleto = await capturarHTMLPanel();
+    // Captura de pantalla de las secciones (réplica visual exacta)
+    if (btn) btn.textContent = 'Capturando pantalla…';
+    const imagenes = await capturarSeccionesImagen();
     // CSV limpio (primeras filas para no saturar)
     const csvData = typeof obtenerCSVLimpio !== 'undefined' ? obtenerCSVLimpio() : '';
     const payload = {
@@ -1164,6 +1217,7 @@ async function solicitarInformePro() {
       secciones: secs,
       sps: sps,
       html_completo: htmlCompleto,
+      imagenes: imagenes,
       csv_text: typeof csvData === 'string' ? csvData.substring(0, 800000) : ''
     };
     if (btn) btn.textContent = 'Enviando solicitud…';
