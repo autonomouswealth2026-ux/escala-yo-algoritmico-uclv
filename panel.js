@@ -587,13 +587,15 @@ async function generarPDFProfesional() {
 }
 // Barrera asíncrona: espera MLP, post-hoc, MANOVA
 async function esperarAnalisis() {
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 45; i++) {
     const mlp = document.getElementById('mlp-status');
     const ph = document.getElementById('posthoc-tables');
     const mv = document.getElementById('multiv-result');
+    const cfa = document.getElementById('cfa-result');
     const done = (!mlp || !mlp.textContent.includes('Entrenando'))
       && (!ph || !ph.textContent.includes('Calculando'))
-      && (!mv || !mv.textContent.includes('Calculando'));
+      && (!mv || !mv.textContent.includes('Calculando'))
+      && (!cfa || cfa.textContent.trim().length > 20);
     if (done) return;
     await new Promise(r => setTimeout(r, 1000));
   }
@@ -747,6 +749,16 @@ function exportCSV() {
   const lines = [cols.join(',')];
   DB.validos.forEach(c => lines.push(cols.map(k => c[k] == null ? '' : c[k]).join(',')));
   descargar('eya28_limpio.csv', '﻿' + lines.join('\n'), 'text/csv;charset=utf-8');
+}
+
+function obtenerCSVLimpio() {
+  if (!DB || !DB.validos) return '';
+  const cols = ['ID_SUJETO', 'EDAD', 'SEXO', 'CARRERA', 'ANO_ACADEMICO', 'USO_IA_FREQ',
+    ...ITEMS, 'EYA_01_R', 'EYA_04_R', 'D1_COGNITIVA', 'D2_AFECTIVA', 'D3_CONDUCTUAL',
+    'D4_IDENTITARIA', 'EYA_TOTAL', 'RT_TOTAL_MS', 'FLAG_RAPIDEZ', 'IMC_CONTROL', 'CALIDAD_OK'];
+  const lines = [cols.join(',')];
+  DB.validos.forEach(c => lines.push(cols.map(k => c[k] == null ? '' : c[k]).join(',')));
+  return '﻿' + lines.join('\n');
 }
 
 function generarSPS() {
@@ -1077,12 +1089,26 @@ function extraerSecciones() {
     const h3 = sec.querySelector('h3');
     const titulo = h3 ? h3.textContent.trim() : 'Sección';
     const parrafos = [];
+    // Párrafos directos
     sec.querySelectorAll(':scope > p').forEach(p => {
       const t = p.textContent.trim();
       if (t && !t.includes('Calculando') && !t.includes('Entrenando')) parrafos.push(t);
     });
+    // Divs con resultados (CFA, MLP, etc.) - capturar su texto
+    sec.querySelectorAll(':scope > div').forEach(dv => {
+      if (dv.id === 'cfa-result' || dv.id === 'mlp-result' || dv.id === 'multiv-result' || dv.id === 'posthoc-tables') {
+        const t = dv.textContent.trim();
+        if (t && !t.includes('Calculando') && !t.includes('Entrenando') && t.length > 10) {
+          // Dividir en líneas significativas
+          t.split('\n').forEach(line => {
+            const lt = line.trim();
+            if (lt && lt.length > 5) parrafos.push(lt);
+          });
+        }
+      }
+    });
     const tablas = [];
-    sec.querySelectorAll(':scope table').forEach(tbl => {
+    sec.querySelectorAll('table').forEach(tbl => {
       const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
         Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
       if (rows.length) tablas.push(rows);
@@ -1185,7 +1211,7 @@ async function solicitarInformePro() {
     const secs = extraerSecciones();
     const sps = generarSPS();
     // CSV limpio (primeras filas para no saturar)
-    const csvData = typeof generarCSV !== 'undefined' ? generarCSV() : '';
+    const csvData = typeof obtenerCSVLimpio !== 'undefined' ? obtenerCSVLimpio() : '';
     const payload = {
       action: 'solicitudInforme',
       to: email.e1,
@@ -1193,7 +1219,7 @@ async function solicitarInformePro() {
       meta: { n: (typeof DB !== 'undefined' && DB.length) ? DB.length : 0, fecha: new Date().toISOString() },
       secciones: secs,
       sps: sps,
-      csv: typeof csvData === 'string' ? csvData.substring(0, 500000) : ''
+      csv_text: typeof csvData === 'string' ? csvData.substring(0, 800000) : ''
     };
     if (btn) btn.textContent = 'Enviando solicitud…';
     await fetch('https://script.google.com/macros/s/AKfycby3wCGgV5RYWNh-chLsvWgJwdncSFeNf-mv1FecaB5gQva82vD3uRd71WL4EQ5SZuCw/exec', {
