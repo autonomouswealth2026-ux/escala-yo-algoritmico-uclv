@@ -580,7 +580,7 @@ async function generarPDFProfesional() {
     };
     pdfMake.createPdf(docDef).download('informe-eya28.pdf');
   } catch (e) {
-    alert('Error al generar PDF: ' + e.message);
+    mostrarAviso('error', 'Error al generar PDF', e.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
@@ -668,7 +668,7 @@ async function generarWordProfesional() {
     const blob = await Packer.toBlob(doc);
     descargar('informe-eya28.docx', blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
   } catch (e) {
-    alert('Error al generar Word: ' + e.message);
+    mostrarAviso('error', 'Error al generar Word', e.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
@@ -752,7 +752,7 @@ function obtenerCSVLimpio() {
 }
 
 function generarSPS() {
-  if (!DB) { alert('Procesa primero una base de datos para generar la sintaxis.'); return; }
+  if (!DB) { mostrarAviso('warn', 'Sin datos', 'Procesa primero una base de datos para generar la sintaxis.'); return; }
   try {
   let s = `* EYA-28 · Sintaxis generada automáticamente por el panel del investigador.\n` +
     `* n válido = ${DB.nValidos} de ${DB.total} casos importados.\n` +
@@ -772,7 +772,7 @@ function generarSPS() {
   s += `DESCRIPTIVES VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL\n  /STATISTICS=MEAN STDDEV MIN MAX.\n`;
   return s;
   } catch (e) {
-    alert('Error al generar la sintaxis: ' + e.message);
+    mostrarAviso('error', 'Error al generar la sintaxis', e.message);
   }
 }
 
@@ -785,7 +785,12 @@ function mostrar(id) {
 
 async function cargar() {
   const err = document.getElementById('p-err');
+  const btn = document.getElementById('btn-procesar');
+  const lbl = btn ? btn.querySelector('.btn-label') : null;
   err.hidden = true;
+  if (btn) { btn.disabled = true; }
+  if (lbl) { lbl.innerHTML = '<span class="spinner" aria-hidden="true"></span> Procesando…'; }
+  const prog = document.getElementById('p-progress');
   try {
     const file = document.getElementById('csv-file').files[0];
     let text;
@@ -802,10 +807,15 @@ async function cargar() {
     if (rows.length < 2) throw new Error('El CSV no contiene datos.');
     DB = procesar(rows);
     render(DB);
+    construirNavegador();
+    renderHero(DB);
     mostrar('p-results');
   } catch (e) {
     err.textContent = e.message;
     err.hidden = false;
+  } finally {
+    if (btn) { btn.disabled = false; }
+    if (lbl) { lbl.textContent = 'Procesar datos'; }
   }
 }
 
@@ -823,12 +833,14 @@ document.getElementById('btn-demo').addEventListener('click', async () => {
     text = null; // Liberar memoria del CSV crudo
     DB = procesar(rows);
     render(DB);
+    construirNavegador();
+    renderHero(DB);
     mostrar('p-results');
   } catch (e) {
     err.textContent = e.message;
     err.hidden = false;
   }
-  btn.disabled = false; btn.textContent = 'Cargar datos demo (n=5000)';
+  btn.disabled = false; btn.textContent = 'Cargar datos de demostración (n=5000)';
 });
 document.getElementById('btn-volver').addEventListener('click', () => mostrar('p-load'));
 /* ---------- copiar informe completo ---------- */
@@ -891,7 +903,7 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
   setTimeout(() => { btn.textContent = 'Copiar informe'; }, 2500);
 });
 /* ---------- descargar PDF (vía impresión) ---------- */
-document.getElementById('btn-pdf').addEventListener('click', generarPDFProfesional);
+// btn-pdf eliminado del HTML; generarPDFProfesional conservada por compatibilidad
 /* ---------- descargar Word (.doc y .docx) — VERSIÓN CON TABLAS ---------- */
 function wordHtmlContent() {
   const title = document.getElementById('p-title').textContent;
@@ -942,17 +954,7 @@ function wordHtmlContent() {
   return html;
 }
 // ZIP mínimo (almacenado, sin compresión) para .docx
-function crc32(str) {
-  const tbl = crc32.t || (crc32.t = (() => {
-    const t = new Uint32Array(256);
-    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c; }
-    return t;
-  })());
-  let c = 0xFFFFFFFF;
-  const bytes = typeof str === 'string' ? new TextEncoder().encode(str) : str;
-  for (let i = 0; i < bytes.length; i++) c = tbl[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
-  return (c ^ 0xFFFFFFFF) >>> 0;
-}
+// crc32 duplicada eliminada (se conserva la definición principal)
 function zipStore(files) {
   // files: [[nombre, Uint8Array|string],...] → Uint8Array del ZIP
   const enc = new TextEncoder();
@@ -1062,11 +1064,7 @@ async function buildDocBlob() {
   const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">' + wordHtmlContent() + '</body></html>';
   return new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
 }
-document.getElementById('btn-word').addEventListener('click', generarWordProfesional);
-document.getElementById('btn-sps').addEventListener('click', () => {
-  if (!DB) return;
-  descargar('eya28_panel.sps', generarSPS(), 'text/csv;charset=utf-8');
-});
+// btn-word/btn-sps eliminados del HTML (el SPS se genera en el informe profesional)
 
 // ===== Envío por correo vía EmailJS =====
 
@@ -1109,7 +1107,7 @@ function extraerSecciones() {
 
 // Solicita el informe profesional generado por el asistente
 async function solicitarInformePro() {
-  if (!DB) { alert('Procesa primero una base de datos.'); return; }
+  if (!DB) { mostrarAviso('warn', 'Sin datos', 'Procesa primero una base de datos.'); return; }
   const email = await new Promise((resolve) => {
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
@@ -1159,9 +1157,9 @@ async function solicitarInformePro() {
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload)
     }).catch(() => {});
-    alert('Solicitud enviada. El informe profesional llegará a tu correo en unos minutos.');
+    mostrarAviso('ok', 'Solicitud enviada', 'El informe profesional llegará a tu correo en unos minutos.');
   } catch (e) {
-    alert('Error: ' + e.message);
+    mostrarAviso('error', 'No se pudo enviar la solicitud', e.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
@@ -1313,4 +1311,79 @@ async function generarDocxBlob(DX) {
   return await Packer.toBlob(doc);
 }
 
+/* ---------- Avisos inline (reemplazan alert) ---------- */
+function mostrarAviso(tipo, titulo, mensaje) {
+  let host = document.getElementById('aviso-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'aviso-host';
+    host.style.cssText = 'position:fixed;top:1rem;left:50%;transform:translateX(-50%);z-index:9999;max-width:min(92vw,480px);width:100%';
+    document.body.appendChild(host);
+  }
+  const el = document.createElement('div');
+  el.className = 'inline-alert ' + (tipo === 'ok' ? 'ok' : tipo === 'warn' ? 'warn' : 'error');
+  el.setAttribute('role', 'alert');
+  el.innerHTML = '<div><strong></strong><span></span></div>';
+  el.querySelector('strong').textContent = titulo;
+  el.querySelector('span').textContent = mensaje;
+  host.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .4s'; setTimeout(() => el.remove(), 450); }, 6000);
+  el.addEventListener('click', () => el.remove());
+}
 
+/* ---------- Navegador de secciones ---------- */
+function construirNavegador() {
+  const lista = document.getElementById('sec-nav-list');
+  const contenedor = document.getElementById('p-out');
+  if (!lista || !contenedor) return;
+  lista.innerHTML = '';
+  const secciones = contenedor.querySelectorAll(':scope > .sec');
+  secciones.forEach((sec, i) => {
+    const h3 = sec.querySelector(':scope > h3');
+    if (!h3) return;
+    const id = 'sec-' + i;
+    sec.id = id;
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = '#' + id;
+    // Texto corto: primeras 6 palabras
+    const palabras = h3.textContent.trim().split(/\s+/).slice(0, 6).join(' ');
+    a.textContent = palabras;
+    a.title = h3.textContent.trim();
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      lista.querySelectorAll('a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+    li.appendChild(a);
+    lista.appendChild(li);
+  });
+  // Resaltar sección visible al hacer scroll
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        lista.querySelectorAll('a').forEach(x => x.classList.remove('active'));
+        const link = lista.querySelector('a[href="#' + en.target.id + '"]');
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  secciones.forEach(s => obs.observe(s));
+}
+
+/* ---------- Hero de muestra ---------- */
+function renderHero(db) {
+  const wrap = document.getElementById('sample-hero-wrap');
+  const hero = document.getElementById('sample-hero');
+  if (!wrap || !hero || !db) return;
+  const { total, nValidos } = db;
+  const excluidos = total - nValidos;
+  const pct = total ? Math.round(nValidos / total * 100) : 0;
+  hero.innerHTML =
+    '<div class="stat-card"><div class="num accent">' + nValidos.toLocaleString('es') + '</div><div class="lbl">Casos válidos</div></div>' +
+    '<div class="stat-card"><div class="num">' + total.toLocaleString('es') + '</div><div class="lbl">Importados</div></div>' +
+    '<div class="stat-card"><div class="num">' + excluidos.toLocaleString('es') + '</div><div class="lbl">Excluidos</div></div>' +
+    '<div class="stat-card"><div class="num">' + pct + '%</div><div class="lbl">Retención</div></div>';
+  wrap.hidden = false;
+}
