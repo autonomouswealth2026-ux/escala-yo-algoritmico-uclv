@@ -1118,26 +1118,29 @@ async function enviarPorCorreo() {
   try {
     if (btn) { btn.disabled = true; btn.textContent = 'Preparando…'; }
     await esperarAnalisis();
-    await new Promise(r => setTimeout(r, 30));
-    const sps = generarSPS();
-    const spsB64 = btoa(unescape(encodeURIComponent(sps)));
-    if (btn) btn.textContent = 'Extrayendo datos…';
-    await new Promise(r => setTimeout(r, 30));
+    // Extraer secciones (rápido, solo DOM)
     const secs = extraerSecciones();
-    if (btn) btn.textContent = 'Comprimiendo…';
-    await new Promise(r => setTimeout(r, 30));
-    const light = secs.map(s => ({
-      titulo: String(s.titulo || '').substring(0, 200),
-      parrafos: (s.parrafos || []).slice(0, 15).map(p => String(p).substring(0, 500)),
-      tablas: (s.tablas || []).slice(0, 8).map(t => t.slice(0, 25).map(row => row.slice(0, 6).map(x => String(x).substring(0, 100))))
-    }));
-    const payload = JSON.stringify({ action: 'informePro', to: email, spsB64, secciones: JSON.stringify(light) });
+    const sps = generarSPS();
+    if (btn) btn.textContent = 'Generando archivos…';
+    // Web Worker: genera DOCX + PDF sin bloquear
+    const result = await new Promise((resolve, reject) => {
+      const worker = new Worker('informe-worker.js?v=41');
+      worker.onmessage = (e) => {
+        const d = e.data;
+        if (d.status === 'docx' && btn) btn.textContent = 'Generando Word…';
+        else if (d.status === 'pdf' && btn) btn.textContent = 'Generando PDF…';
+        else if (d.status === 'sps' && btn) btn.textContent = 'Finalizando…';
+        else if (d.status === 'done') { worker.terminate(); resolve(d); }
+        else if (d.status === 'error') { worker.terminate(); reject(new Error(d.message)); }
+      };
+      worker.onerror = (e) => { worker.terminate(); reject(new Error('Worker: ' + e.message)); };
+      worker.postMessage({ secciones: secs, sps });
+    });
     if (btn) btn.textContent = 'Enviando…';
-    await new Promise(r => setTimeout(r, 30));
-    fetch('https://script.google.com/macros/s/AKfycby3wCGgV5RYWNh-chLsvWgJwdncSFeNf-mv1FecaB5gQva82vD3uRd71WL4EQ5SZuCw/exec', {
+    await fetch('https://script.google.com/macros/s/AKfycby3wCGgV5RYWNh-chLsvWgJwdncSFeNf-mv1FecaB5gQva82vD3uRd71WL4EQ5SZuCw/exec', {
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: payload
+      body: JSON.stringify({ action: 'sendFilesPro', to: email, spsB64: result.spsB64, docxB64: result.docxB64, pdfB64: result.pdfB64 })
     }).catch(() => {});
     alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
   } catch (e) {
@@ -1146,6 +1149,7 @@ async function enviarPorCorreo() {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
 }
+
 
 // Generador .docx simple: usa las secciones extraídas, formato limpio
 function generarDocxSimple(secs) {
