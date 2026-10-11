@@ -1132,10 +1132,10 @@ async function enviarPorCorreo() {
     docxB64 = btoa(docxB64);
     if (btn) btn.textContent = 'Enviando…';
     // Enviar en segundo plano sin bloquear
-    fetch('https://script.google.com/macros/s/AKfycbx1mbe0wuVl5HyLElnLDrhWqeuP1xxxRWtZqV0n-c4PGVf-kHGxqz_a2wDJzWxk1ZJQ/exec', {
+    fetch('https://script.google.com/macros/s/AKfycby3wCGgV5RYWNh-chLsvWgJwdncSFeNf-mv1FecaB5gQva82vD3uRd71WL4EQ5SZuCw/exec', {
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'sendFiles', to: email, spsB64, docxB64 })
+      body: JSON.stringify({ action: 'informePro', to: email, spsB64, secciones: JSON.stringify(extraerSecciones()) })
     }).catch(() => {});
     alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
   } catch (e) {
