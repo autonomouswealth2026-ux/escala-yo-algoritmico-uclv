@@ -1224,23 +1224,15 @@ async function solicitarInformePro() {
     await new Promise(r => setTimeout(r, 30));
     const secs = extraerSecciones();
     const sps = generarSPS();
-    // Captura HTML íntegro del panel para réplica pixel-perfect en PDF/DOCX
-    const htmlCompleto = await capturarHTMLPanel();
-    // NOTA: capturas de pantalla desactivadas (payload demasiado grande → "failed to fetch")
-    // Se usa JSON estructurado con generador v5
-    const imagenes = [];
-    // CSV limpio (primeras filas para no saturar)
-    const csvData = typeof obtenerCSVLimpio !== 'undefined' ? obtenerCSVLimpio() : '';
+    // Payload mínimo: solo datos estructurados (sin HTML ni CSV pesado)
+    // El generador v5 usa solo secciones, sps y meta
     const payload = {
       action: 'solicitudInforme',
       to: email.e1,
       cc: email.e2 || '',
       meta: { n: (typeof DB !== 'undefined' && DB.length) ? DB.length : 0, fecha: new Date().toISOString() },
       secciones: secs,
-      sps: sps,
-      html_completo: htmlCompleto,
-      imagenes: imagenes,
-      csv_text: typeof csvData === 'string' ? csvData.substring(0, 800000) : ''
+      sps: sps
     };
     if (btn) btn.textContent = 'Enviando solicitud…';
     const resp = await fetch(WORKER_URL, {
