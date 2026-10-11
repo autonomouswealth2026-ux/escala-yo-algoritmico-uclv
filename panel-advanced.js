@@ -594,9 +594,11 @@ function renderAvanzado(validos) {
   const allItems = [];
   const itemNames = [];
   for (const esc in ESCALAS) ESCALAS[esc].forEach(it => { itemNames.push(it); });
-  // Usar EYA_01..EYA_28 (con recodificados para 01 y 04)
+  // Usar EYA_01..EYA_28 EXCEPTO EYA_15 (ítem de control instruccional, no es parte de la escala)
+  // con recodificados para 01 y 04
   const cols28 = [];
   for (let i = 1; i <= 28; i++) {
+    if (i === 15) continue; // EYA_15 es IMC, excluir del AFE
     const k = 'EYA_' + String(i).padStart(2, '0');
     cols28.push(k === 'EYA_01' ? 'EYA_01_R' : k === 'EYA_04' ? 'EYA_04_R' : k);
   }
