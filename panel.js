@@ -1149,6 +1149,66 @@ async function enviarPorCorreo() {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
 }
+// Solicita el informe profesional generado por el asistente
+async function solicitarInformePro() {
+  if (!DB) { alert('Procesa primero una base de datos.'); return; }
+  const email = await new Promise((resolve) => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    ov.innerHTML = '<div style="background:#fff;padding:24px;border-radius:12px;max-width:90vw;width:400px;">'
+      + '<h3 style="margin:0 0 12px">Informe profesional</h3>'
+      + '<p style="margin:0 0 12px;color:#666;font-size:14px">El asistente generará el informe completo (PDF, Word, SPSS y CSV) con calidad editorial y lo enviará por correo.</p>'
+      + '<label style="font-size:13px;color:#666">Correo principal:</label>'
+      + '<input id="email1" type="email" value="carlosmiguelvaldesrodriguez@gmail.com" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin:6px 0 12px;box-sizing:border-box;">'
+      + '<label style="font-size:13px;color:#666">Correo adicional (opcional):</label>'
+      + '<input id="email2" type="email" placeholder="colega@ejemplo.com" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin:6px 0 12px;box-sizing:border-box;">'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      + '<button id="sc-cancel" style="padding:10px 16px;border:1px solid #ccc;border-radius:8px;background:#f5f5f5;cursor:pointer;">Cancelar</button>'
+      + '<button id="sc-ok" style="padding:10px 16px;border:none;border-radius:8px;background:#7C3AED;color:#fff;cursor:pointer;">Solicitar</button>'
+      + '</div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('#sc-cancel').onclick = () => { ov.remove(); resolve(null); };
+    ov.querySelector('#sc-ok').onclick = () => {
+      const e1 = ov.querySelector('#email1').value.trim();
+      const e2 = ov.querySelector('#email2').value.trim();
+      ov.remove(); resolve({e1, e2});
+    };
+  });
+  if (!email || !email.e1) return;
+  const btn = document.getElementById('btn-pro');
+  const orig = btn ? btn.textContent : '';
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'Preparando…'; }
+    await esperarAnalisis();
+    if (btn) btn.textContent = 'Recopilando datos…';
+    await new Promise(r => setTimeout(r, 30));
+    const secs = extraerSecciones();
+    const sps = generarSPS();
+    // CSV limpio (primeras filas para no saturar)
+    const csvData = typeof generarCSV !== 'undefined' ? generarCSV() : '';
+    const payload = {
+      action: 'solicitudInforme',
+      to: email.e1,
+      cc: email.e2 || '',
+      meta: { n: (typeof DB !== 'undefined' && DB.length) ? DB.length : 0, fecha: new Date().toISOString() },
+      secciones: secs,
+      sps: sps,
+      csv: typeof csvData === 'string' ? csvData.substring(0, 500000) : ''
+    };
+    if (btn) btn.textContent = 'Enviando solicitud…';
+    await fetch('https://script.google.com/macros/s/AKfycby3wCGgV5RYWNh-chLsvWgJwdncSFeNf-mv1FecaB5gQva82vD3uRd71WL4EQ5SZuCw/exec', {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+    alert('Solicitud enviada. El informe profesional llegará a tu correo en unos minutos.');
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
 
 
 // Generador .docx simple: usa las secciones extraídas, formato limpio
