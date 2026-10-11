@@ -1115,7 +1115,7 @@ function extraerSecciones() {
 
 // Solicita el informe profesional generado por el asistente
 // Configuración del relay Cloudflare Workers (reemplaza Apps Script)
-const WORKER_URL = 'https://relay-panel.WORKER_SUBDOMAIN.workers.dev/ingesta';
+const WORKER_URL = 'https://relay-panel.carlosmiguelvaldesrodriguez.workers.dev/ingesta';
 const WORKER_TOKEN = 't4HFQABHgxxv92IZwJSFMD_7q2fDck5hqfDhf6tfFg4';
 
 async function solicitarInformePro() {
