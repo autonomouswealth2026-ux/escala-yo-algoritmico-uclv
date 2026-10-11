@@ -1,5 +1,5 @@
 // Web Worker v3: jsPDF profesional + DOCX manual
-importScripts('jspdf.min.js', 'jspdf-autotable.min.js');
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
 
 var COL = {
   primary: [30, 58, 138],
