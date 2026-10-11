@@ -1094,12 +1094,12 @@ function extraerSecciones() {
 
 async function enviarPorCorreo() {
   if (!DB) { alert('Procesa primero una base de datos.'); return; }
-  // Usar un diálogo no bloqueante en lugar de prompt()
   const email = await new Promise((resolve) => {
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
     ov.innerHTML = '<div style="background:#fff;padding:24px;border-radius:12px;max-width:90vw;width:380px;">'
       + '<h3 style="margin:0 0 12px">Enviar por correo</h3>'
+      + '<p style="margin:0 0 12px;color:#666;font-size:14px">Se enviara el informe completo (sintaxis SPSS, PDF y Word).</p>'
       + '<input id="email-dest" type="email" value="carlosmiguelvaldesrodriguez@gmail.com" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:12px;box-sizing:border-box;">'
       + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
       + '<button id="email-cancel" style="padding:10px 16px;border:1px solid #ccc;border-radius:8px;background:#f5f5f5;cursor:pointer;">Cancelar</button>'
@@ -1118,24 +1118,26 @@ async function enviarPorCorreo() {
   try {
     if (btn) { btn.disabled = true; btn.textContent = 'Preparando…'; }
     await esperarAnalisis();
+    await new Promise(r => setTimeout(r, 30));
     const sps = generarSPS();
     const spsB64 = btoa(unescape(encodeURIComponent(sps)));
-    if (btn) btn.textContent = 'Generando Word…';
+    if (btn) btn.textContent = 'Extrayendo datos…';
+    await new Promise(r => setTimeout(r, 30));
     const secs = extraerSecciones();
-    // Generar .docx simple pero completo del lado del cliente
-    const docxBytes = generarDocxSimple(secs);
-    let docxB64 = '';
-    const chunk = 8192;
-    for (let i = 0; i < docxBytes.length; i += chunk) {
-      docxB64 += String.fromCharCode.apply(null, docxBytes.subarray(i, i + chunk));
-    }
-    docxB64 = btoa(docxB64);
+    if (btn) btn.textContent = 'Comprimiendo…';
+    await new Promise(r => setTimeout(r, 30));
+    const light = secs.map(s => ({
+      titulo: String(s.titulo || '').substring(0, 200),
+      parrafos: (s.parrafos || []).slice(0, 15).map(p => String(p).substring(0, 500)),
+      tablas: (s.tablas || []).slice(0, 8).map(t => t.slice(0, 25).map(row => row.slice(0, 6).map(x => String(x).substring(0, 100))))
+    }));
+    const payload = JSON.stringify({ action: 'informePro', to: email, spsB64, secciones: JSON.stringify(light) });
     if (btn) btn.textContent = 'Enviando…';
-    // Enviar en segundo plano sin bloquear
+    await new Promise(r => setTimeout(r, 30));
     fetch('https://script.google.com/macros/s/AKfycby3wCGgV5RYWNh-chLsvWgJwdncSFeNf-mv1FecaB5gQva82vD3uRd71WL4EQ5SZuCw/exec', {
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'informePro', to: email, spsB64, secciones: JSON.stringify(extraerSecciones()) })
+      body: payload
     }).catch(() => {});
     alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
   } catch (e) {
@@ -1144,6 +1146,7 @@ async function enviarPorCorreo() {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
 }
+
 // Generador .docx simple: usa las secciones extraídas, formato limpio
 function generarDocxSimple(secs) {
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
