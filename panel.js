@@ -741,16 +741,6 @@ function descargar(nombre, contenido, tipo) {
   reader.readAsDataURL(blob);
 }
 
-function exportCSV() {
-  if (!DB) return;
-  const cols = ['ID_SUJETO', 'EDAD', 'SEXO', 'CARRERA', 'ANO_ACADEMICO', 'USO_IA_FREQ',
-    ...ITEMS, 'EYA_01_R', 'EYA_04_R', 'D1_COGNITIVA', 'D2_AFECTIVA', 'D3_CONDUCTUAL',
-    'D4_IDENTITARIA', 'EYA_TOTAL', 'RT_TOTAL_MS', 'FLAG_RAPIDEZ', 'IMC_CONTROL', 'CALIDAD_OK'];
-  const lines = [cols.join(',')];
-  DB.validos.forEach(c => lines.push(cols.map(k => c[k] == null ? '' : c[k]).join(',')));
-  descargar('eya28_limpio.csv', '﻿' + lines.join('\n'), 'text/csv;charset=utf-8');
-}
-
 function obtenerCSVLimpio() {
   if (!DB || !DB.validos) return '';
   const cols = ['ID_SUJETO', 'EDAD', 'SEXO', 'CARRERA', 'ANO_ACADEMICO', 'USO_IA_FREQ',
@@ -1073,7 +1063,6 @@ async function buildDocBlob() {
   return new Blob(['\ufeff' + html], {type: 'application/msword;charset=utf-8'});
 }
 document.getElementById('btn-word').addEventListener('click', generarWordProfesional);
-document.getElementById('btn-csv').addEventListener('click', exportCSV);
 document.getElementById('btn-sps').addEventListener('click', () => {
   if (!DB) return;
   descargar('eya28_panel.sps', generarSPS(), 'text/csv;charset=utf-8');
@@ -1118,63 +1107,6 @@ function extraerSecciones() {
   return secs;
 }
 
-async function enviarPorCorreo() {
-  if (!DB) { alert('Procesa primero una base de datos.'); return; }
-  const email = await new Promise((resolve) => {
-    const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    ov.innerHTML = '<div style="background:#fff;padding:24px;border-radius:12px;max-width:90vw;width:380px;">'
-      + '<h3 style="margin:0 0 12px">Enviar por correo</h3>'
-      + '<p style="margin:0 0 12px;color:#666;font-size:14px">Se enviara el informe completo (sintaxis SPSS, PDF y Word).</p>'
-      + '<input id="email-dest" type="email" value="carlosmiguelvaldesrodriguez@gmail.com" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:12px;box-sizing:border-box;">'
-      + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
-      + '<button id="email-cancel" style="padding:10px 16px;border:1px solid #ccc;border-radius:8px;background:#f5f5f5;cursor:pointer;">Cancelar</button>'
-      + '<button id="email-ok" style="padding:10px 16px;border:none;border-radius:8px;background:#2563EB;color:#fff;cursor:pointer;">Enviar</button>'
-      + '</div></div>';
-    document.body.appendChild(ov);
-    const inp = ov.querySelector('#email-dest');
-    inp.focus(); inp.select();
-    ov.querySelector('#email-cancel').onclick = () => { ov.remove(); resolve(null); };
-    ov.querySelector('#email-ok').onclick = () => { const v = inp.value.trim(); ov.remove(); resolve(v || null); };
-    inp.onkeydown = (e) => { if (e.key === 'Enter') ov.querySelector('#email-ok').click(); };
-  });
-  if (!email) return;
-  const btn = document.getElementById('btn-email');
-  const orig = btn ? btn.textContent : '';
-  try {
-    if (btn) { btn.disabled = true; btn.textContent = 'Preparando…'; }
-    await esperarAnalisis();
-    // Extraer secciones (rápido, solo DOM)
-    const secs = extraerSecciones();
-    const sps = generarSPS();
-    if (btn) btn.textContent = 'Generando archivos…';
-    // Web Worker: genera DOCX + PDF sin bloquear
-    const result = await new Promise((resolve, reject) => {
-      const worker = new Worker('informe-worker.js?v=46');
-      worker.onmessage = (e) => {
-        const d = e.data;
-        if (d.status === 'docx' && btn) btn.textContent = 'Generando Word…';
-        else if (d.status === 'pdf' && btn) btn.textContent = 'Generando PDF…';
-        else if (d.status === 'sps' && btn) btn.textContent = 'Finalizando…';
-        else if (d.status === 'done') { worker.terminate(); resolve(d); }
-        else if (d.status === 'error') { worker.terminate(); reject(new Error(d.message)); }
-      };
-      worker.onerror = (e) => { worker.terminate(); reject(new Error('Worker: ' + e.message)); };
-      worker.postMessage({ secciones: secs, sps });
-    });
-    if (btn) btn.textContent = 'Enviando…';
-    await fetch('https://script.google.com/macros/s/AKfycby3wCGgV5RYWNh-chLsvWgJwdncSFeNf-mv1FecaB5gQva82vD3uRd71WL4EQ5SZuCw/exec', {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'sendFilesPro', to: email, spsB64: result.spsB64, docxB64: result.docxB64, pdfB64: result.pdfB64 })
-    }).catch(() => {});
-    alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
-  } catch (e) {
-    alert('Error: ' + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = orig; }
-  }
-}
 // Solicita el informe profesional generado por el asistente
 async function solicitarInformePro() {
   if (!DB) { alert('Procesa primero una base de datos.'); return; }
