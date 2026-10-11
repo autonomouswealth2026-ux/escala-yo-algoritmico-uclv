@@ -1370,16 +1370,20 @@ function construirNavegador() {
     li.appendChild(a);
     lista.appendChild(li);
   });
-  // Resaltar sección visible al hacer scroll
+  // Resaltar sección visible al hacer scroll (optimizado: solo toca el DOM si cambia)
+  let activoId = null;
   const obs = new IntersectionObserver((entries) => {
-    entries.forEach(en => {
-      if (en.isIntersecting) {
-        lista.querySelectorAll('a').forEach(x => x.classList.remove('active'));
-        const link = lista.querySelector('a[href="#' + en.target.id + '"]');
+    for (const en of entries) {
+      if (en.isIntersecting && en.target.id !== activoId) {
+        activoId = en.target.id;
+        const prev = lista.querySelector('a.active');
+        if (prev) prev.classList.remove('active');
+        const link = lista.querySelector('a[href="#' + activoId + '"]');
         if (link) link.classList.add('active');
+        break; // Solo procesar el primer cambio por lote
       }
-    });
-  }, { rootMargin: '-20% 0px -70% 0px' });
+    }
+  }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
   secciones.forEach(s => obs.observe(s));
 }
 
