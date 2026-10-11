@@ -1,3 +1,7 @@
+// Configuración del relay Cloudflare Workers (reemplaza Apps Script)
+const WORKER_URL = 'https://relay-panel.carlosmiguelvaldesrodriguez.workers.dev/ingesta';
+const WORKER_TOKEN = 't4HFQABHgxxv92IZwJSFMD_7q2fDck5hqfDhf6tfFg4';
+
 /* EYA-28 · Panel del investigador · réplica completa del pipeline SPSS en JS vanilla */
 'use strict';
 
@@ -1114,10 +1118,6 @@ function extraerSecciones() {
 }
 
 // Solicita el informe profesional generado por el asistente
-// Configuración del relay Cloudflare Workers (reemplaza Apps Script)
-const WORKER_URL = 'https://relay-panel.carlosmiguelvaldesrodriguez.workers.dev/ingesta';
-const WORKER_TOKEN = 't4HFQABHgxxv92IZwJSFMD_7q2fDck5hqfDhf6tfFg4';
-
 async function solicitarInformePro() {
   if (!DB) { mostrarAviso('warn', 'Sin datos', 'Procesa primero una base de datos.'); return; }
   const email = await new Promise((resolve) => {
