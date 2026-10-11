@@ -201,7 +201,7 @@ body{
 }
 .sec tbody th{background:#F5F1E8;font-weight:600;text-align:left;padding:.5rem .65rem;border:1px solid var(--line)}
 .sec tbody td{padding:.5rem .65rem;border:1px solid var(--line);text-align:center;font-variant-numeric:tabular-nums}
-.sec tbody tr:nth-child(even){background:#FCFAF5}
+/* rayado cebra eliminado: confundía al usuario */
 .sec tbody tr:hover{background:var(--copper-wash)}
 .table-scroll{overflow-x:auto;margin:.8rem 0;border-radius:8px}
 .table-scroll table{margin:0}
@@ -219,7 +219,7 @@ body{
 .spss-table{border-collapse:collapse;font-size:.85rem;width:100%}
 .spss-table th,.spss-table td{border:1px solid #8a8a8a;padding:.35rem .6rem;text-align:center}
 .spss-table thead th{border-bottom:2px solid var(--ink);background:var(--ink);color:#FFFDF8;font-weight:700}
-.spss-table thead th.rowlab{background:var(--ink-soft);color:#FFFDF8}
+.spss-table thead th.rowlab{background:var(--ink);color:#FFFDF8}
 .spss-table td.rowlab,.spss-table th.rowlab{text-align:left;font-weight:600;background:#FCFAF5}
 .spss-notes{font-size:.78rem;color:var(--muted);margin-top:.35rem;line-height:1.55}
 
