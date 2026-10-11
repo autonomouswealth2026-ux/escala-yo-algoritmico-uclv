@@ -1114,6 +1114,10 @@ function extraerSecciones() {
 }
 
 // Solicita el informe profesional generado por el asistente
+// Configuración del relay Cloudflare Workers (reemplaza Apps Script)
+const WORKER_URL = 'https://relay-panel.WORKER_SUBDOMAIN.workers.dev/ingesta';
+const WORKER_TOKEN = 't4HFQABHgxxv92IZwJSFMD_7q2fDck5hqfDhf6tfFg4';
+
 async function solicitarInformePro() {
   if (!DB) { mostrarAviso('warn', 'Sin datos', 'Procesa primero una base de datos.'); return; }
   const email = await new Promise((resolve) => {
@@ -1163,12 +1167,17 @@ async function solicitarInformePro() {
       csv_text: typeof csvData === 'string' ? csvData.substring(0, 800000) : ''
     };
     if (btn) btn.textContent = 'Enviando solicitud…';
-    await fetch('https://script.google.com/macros/s/AKfycby3wCGgV5RYWNh-chLsvWgJwdncSFeNf-mv1FecaB5gQva82vD3uRd71WL4EQ5SZuCw/exec', {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
+    const resp = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-ingesta-token': WORKER_TOKEN },
       body: JSON.stringify(payload)
-    }).catch(() => {});
-    mostrarAviso('ok', 'Solicitud enviada', 'El informe profesional llegará a tu correo en unos minutos.');
+    });
+    const result = await resp.json().catch(() => ({}));
+    if (resp.ok && result.ok) {
+      mostrarAviso('ok', 'Solicitud enviada', 'El informe profesional llegará a tu correo en unos minutos. (ID: ' + result.id + ')');
+    } else {
+      throw new Error('El servidor no aceptó la solicitud (HTTP ' + resp.status + ')');
+    }
   } catch (e) {
     mostrarAviso('error', 'No se pudo enviar la solicitud', e.message);
   } finally {
