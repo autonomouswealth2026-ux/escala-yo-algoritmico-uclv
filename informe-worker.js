@@ -136,10 +136,26 @@ function generarPDF(secs) {
     y = 800;
   }
   function texto(t, size, bold, color) {
-    if (y < 50) nuevaPagina();
-    const c = color || '0 0 0';
-    content += 'BT /F' + (bold ? '2' : '1') + ' ' + size + ' Tf ' + c + ' rg 50 ' + y + ' Td (' + pdfEsc(t) + ') Tj ET\n';
-    y -= size + 4;
+    const lines = wrapText(String(t), size);
+    for (const ln of lines) {
+      if (y < 50) nuevaPagina();
+      const c = color || '0 0 0';
+      content += 'BT /F' + (bold ? '2' : '1') + ' ' + size + ' Tf ' + c + ' rg 50 ' + y + ' Td (' + pdfEsc(ln) + ') Tj ET\n';
+      y -= size + 3;
+    }
+  }
+  function wrapText(t, size) {
+    const maxChars = Math.floor(500 / (size * 0.55));
+    const words = t.split(' ');
+    const lines = [];
+    let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (test.length > maxChars && line) { lines.push(line); line = w; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+    return lines.length ? lines : [''];
   }
   function tabla(rows) {
     if (!rows.length) return;
@@ -164,8 +180,25 @@ function generarPDF(secs) {
     }
     y -= 10;
   }
+  const WINANSI = {};
+  WINANSI['\u00e1']='\\341'; WINANSI['\u00e9']='\\351'; WINANSI['\u00ed']='\\355';
+  WINANSI['\u00f3']='\\363'; WINANSI['\u00fa']='\\372'; WINANSI['\u00f1']='\\361';
+  WINANSI['\u00c1']='\\301'; WINANSI['\u00c9']='\\311'; WINANSI['\u00cd']='\\315';
+  WINANSI['\u00d3']='\\323'; WINANSI['\u00da']='\\332'; WINANSI['\u00d1']='\\321';
+  WINANSI['\u00bf']='\\277'; WINANSI['\u00a1']='\\241'; WINANSI['\u00b0']='\\260';
   function pdfEsc(s) {
-    return String(s).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)').substring(0, 200);
+    let t = String(s);
+    let out = '';
+    for (let i = 0; i < t.length && out.length < 180; i++) {
+      const ch = t[i];
+      if (WINANSI[ch]) out += WINANSI[ch];
+      else if (ch === '\\') out += '\\\\';
+      else if (ch === '(') out += '\\(';
+      else if (ch === ')') out += '\\)';
+      else if (ch.charCodeAt(0) < 32 || ch.charCodeAt(0) > 126) out += '?';
+      else out += ch;
+    }
+    return out;
   }
 
   nuevaPagina();
