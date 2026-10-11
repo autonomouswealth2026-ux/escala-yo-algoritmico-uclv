@@ -1148,6 +1148,8 @@ async function solicitarInformePro() {
     await new Promise(r => setTimeout(r, 30));
     const secs = extraerSecciones();
     const sps = generarSPS();
+    // Captura HTML íntegro del panel para réplica pixel-perfect en PDF/DOCX
+    const htmlCompleto = await capturarHTMLPanel();
     // CSV limpio (primeras filas para no saturar)
     const csvData = typeof obtenerCSVLimpio !== 'undefined' ? obtenerCSVLimpio() : '';
     const payload = {
@@ -1157,6 +1159,7 @@ async function solicitarInformePro() {
       meta: { n: (typeof DB !== 'undefined' && DB.length) ? DB.length : 0, fecha: new Date().toISOString() },
       secciones: secs,
       sps: sps,
+      html_completo: htmlCompleto,
       csv_text: typeof csvData === 'string' ? csvData.substring(0, 800000) : ''
     };
     if (btn) btn.textContent = 'Enviando solicitud…';
@@ -1394,4 +1397,42 @@ function renderHero(db) {
     '<div class="stat-card"><div class="num">' + excluidos.toLocaleString('es') + '</div><div class="lbl">Excluidos</div></div>' +
     '<div class="stat-card"><div class="num">' + pct + '%</div><div class="lbl">Retención</div></div>';
   wrap.hidden = false;
+}
+
+/* ---------- Captura HTML íntegro para réplica PDF/DOCX ---------- */
+async function capturarHTMLPanel() {
+  try {
+    // Obtener el CSS actual
+    let cssText = '';
+    try {
+      const r = await fetch('styles.css');
+      if (r.ok) cssText = await r.text();
+    } catch (e) { /* sin CSS externo */ }
+    // CSS adicional para impresión
+    const printCSS = `
+      body{background:#fff !important;padding:2rem !important;}
+      #app{max-width:100% !important;}
+      .lab-header{border-bottom:3px double #C9BFA8;}
+      .sec{break-inside:avoid;box-shadow:none !important;}
+      .sec-nav,.card-foot,.lab-footer,.btn{display:none !important;}
+      .step{display:block !important;}
+    `;
+    const host = document.getElementById('p-out');
+    const hero = document.getElementById('sample-hero-wrap');
+    const titulo = document.getElementById('p-title');
+    let bodyHTML = '';
+    if (titulo) bodyHTML += '<h1 style="font-family:Georgia,serif;color:#1A2332;margin-bottom:1rem;">' + titulo.textContent + '</h1>';
+    if (hero && !hero.hidden) bodyHTML += hero.outerHTML;
+    if (host) bodyHTML += host.innerHTML;
+    const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+      + '<title>Informe EYA-28</title><style>' + cssText + printCSS + '</style></head>'
+      + '<body><div id="app"><div class="lab-header"><div class="lab-brand">'
+      + '<div class="lab-mark">Ψ</div><div class="lab-titles">'
+      + '<p class="kicker">EYA-28 · Escala del Yo Algorítmico · UCLV</p>'
+      + '<h1>Informe de resultados</h1></div></div></div>'
+      + bodyHTML + '</div></body></html>';
+    return html;
+  } catch (e) {
+    return null;
+  }
 }
