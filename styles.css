@@ -218,7 +218,8 @@ body{
 .spss-title{font-weight:700;font-size:.95rem;margin-bottom:.4rem;font-family:var(--serif)}
 .spss-table{border-collapse:collapse;font-size:.85rem;width:100%}
 .spss-table th,.spss-table td{border:1px solid #8a8a8a;padding:.35rem .6rem;text-align:center}
-.spss-table thead th{border-bottom:2px solid var(--ink);background:#F5F1E8;font-weight:700}
+.spss-table thead th{border-bottom:2px solid var(--ink);background:var(--ink);color:#FFFDF8;font-weight:700}
+.spss-table thead th.rowlab{background:var(--ink-soft);color:#FFFDF8}
 .spss-table td.rowlab,.spss-table th.rowlab{text-align:left;font-weight:600;background:#FCFAF5}
 .spss-notes{font-size:.78rem;color:var(--muted);margin-top:.35rem;line-height:1.55}
 
