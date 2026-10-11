@@ -1081,6 +1081,14 @@ function extraerSecciones() {
       const t = p.textContent.trim();
       if (t && !t.includes('Calculando') && !t.includes('Entrenando')) parrafos.push(t);
     });
+    // Subtítulos h4 (ej: "Histograma: EYA_TOTAL") — preservan la estructura
+    sec.querySelectorAll(':scope > h4').forEach(h4 => {
+      const t = h4.textContent.trim();
+      if (t) parrafos.push('__H4__' + t);
+    });
+    // SVGs (gráficos): marcar presencia para que el generador lo sepa
+    const nSvg = sec.querySelectorAll(':scope svg, :scope > div svg').length;
+    const tieneGraficos = nSvg > 0;
     // Divs con resultados (CFA, MLP, etc.) - capturar su texto
     sec.querySelectorAll(':scope > div').forEach(dv => {
       if (dv.id === 'cfa-result' || dv.id === 'mlp-result' || dv.id === 'multiv-result' || dv.id === 'posthoc-tables') {
@@ -1100,7 +1108,7 @@ function extraerSecciones() {
         Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
       if (rows.length) tablas.push(rows);
     });
-    if (parrafos.length || tablas.length) secs.push({ titulo, parrafos, tablas });
+    if (parrafos.length || tablas.length || tieneGraficos) secs.push({ titulo, parrafos, tablas, tieneGraficos });
   });
   return secs;
 }
