@@ -10,7 +10,7 @@
    ================================================================ */
 
 function svgBase(w, h, inner) {
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px;background:#fff;border:1px solid #E2E8F0;border-radius:8px" role="img">${inner}</svg>`;
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px;background:#FDFBF7;border:1px solid #E5DCCB;border-radius:12px;box-shadow:0 1px 3px rgba(26,35,50,.06)" role="img">${inner}</svg>`;
 }
 function svgText(x, y, s, o) {
   o = o || {};
@@ -45,12 +45,27 @@ function svgHistogram(values, title, bins) {
     const x = ml + i * bw + 1, y = mt + ph - bh;
     s += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${bh.toFixed(1)}" fill="#2563EB" opacity="0.85" rx="2"><title>${(mn + i * w).toFixed(1)}–${(mn + (i + 1) * w).toFixed(1)}: ${c}</title></rect>`;
   });
+  // Cuadrícula horizontal sutil
+  for (let i = 1; i <= 4; i++) {
+    const gy = mt + ph * i / 5;
+    s += `<line x1="${ml}" y1="${gy}" x2="${ml + pw}" y2="${gy}" stroke="#E5DCCB" stroke-width="0.8" stroke-dasharray="3,3"/>`;
+    s += svgText(ml - 8, gy + 3, Math.round(cmax * (5 - i) / 5), { fs: 9, fill: '#6B7280', a: 'end' });
+  }
   // Etiquetas eje X (5 marcas)
   for (let i = 0; i <= 4; i++) {
     const xv = mn + (mx - mn) * i / 4;
-    s += svgText(ml + pw * i / 4, mt + ph + 16, xv.toFixed(1), { fs: 10, fill: '#64748B' });
+    s += svgText(ml + pw * i / 4, mt + ph + 16, xv.toFixed(1), { fs: 10, fill: '#6B7280' });
   }
-  s += svgText(ml - 30, mt + ph / 2, 'n', { fs: 10, fill: '#64748B' });
+  s += svgText(ml - 30, mt + ph / 2, 'n', { fs: 10, fill: '#6B7280' });
+  // Media (línea cobre) y mediana (línea tinta punteada)
+  const meanV = v.reduce((a, b) => a + b, 0) / v.length;
+  const sorted = [...v].sort((a, b) => a - b);
+  const medV = sorted[Math.floor(sorted.length / 2)];
+  const mx_pos = ml + pw * (meanV - mn) / ((mx - mn) || 1);
+  const md_pos = ml + pw * (medV - mn) / ((mx - mn) || 1);
+  s += `<line x1="${mx_pos}" y1="${mt}" x2="${mx_pos}" y2="${mt + ph}" stroke="#B4702A" stroke-width="1.8"><title>Media: ${meanV.toFixed(2)}</title></line>`;
+  s += `<line x1="${md_pos}" y1="${mt}" x2="${md_pos}" y2="${mt + ph}" stroke="#1A2332" stroke-width="1.4" stroke-dasharray="5,3"><title>Mediana: ${medV.toFixed(2)}</title></line>`;
+  s += svgText(mx_pos, mt - 6, 'Media', { fs: 9, fill: '#B4702A', b: 1 });
   return svgBase(W, H, s);
 }
 
