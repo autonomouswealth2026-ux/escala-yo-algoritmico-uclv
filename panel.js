@@ -1094,7 +1094,24 @@ function extraerSecciones() {
 
 async function enviarPorCorreo() {
   if (!DB) { alert('Procesa primero una base de datos.'); return; }
-  const email = prompt('Correo destino:', 'carlosmiguelvaldesrodriguez@gmail.com');
+  // Usar un diálogo no bloqueante en lugar de prompt()
+  const email = await new Promise((resolve) => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    ov.innerHTML = '<div style="background:#fff;padding:24px;border-radius:12px;max-width:90vw;width:380px;">'
+      + '<h3 style="margin:0 0 12px">Enviar por correo</h3>'
+      + '<input id="email-dest" type="email" value="carlosmiguelvaldesrodriguez@gmail.com" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:12px;box-sizing:border-box;">'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      + '<button id="email-cancel" style="padding:10px 16px;border:1px solid #ccc;border-radius:8px;background:#f5f5f5;cursor:pointer;">Cancelar</button>'
+      + '<button id="email-ok" style="padding:10px 16px;border:none;border-radius:8px;background:#2563EB;color:#fff;cursor:pointer;">Enviar</button>'
+      + '</div></div>';
+    document.body.appendChild(ov);
+    const inp = ov.querySelector('#email-dest');
+    inp.focus(); inp.select();
+    ov.querySelector('#email-cancel').onclick = () => { ov.remove(); resolve(null); };
+    ov.querySelector('#email-ok').onclick = () => { const v = inp.value.trim(); ov.remove(); resolve(v || null); };
+    inp.onkeydown = (e) => { if (e.key === 'Enter') ov.querySelector('#email-ok').click(); };
+  });
   if (!email) return;
   const btn = document.getElementById('btn-email');
   const orig = btn ? btn.textContent : '';
@@ -1103,15 +1120,23 @@ async function enviarPorCorreo() {
     await esperarAnalisis();
     const sps = generarSPS();
     const spsB64 = btoa(unescape(encodeURIComponent(sps)));
-    if (btn) btn.textContent = 'Extrayendo datos…';
-    // Extraer secciones de forma liviana (sin buildTextReport pesado)
+    if (btn) btn.textContent = 'Generando Word…';
     const secs = extraerSecciones();
+    // Generar .docx simple pero completo del lado del cliente
+    const docxBytes = generarDocxSimple(secs);
+    let docxB64 = '';
+    const chunk = 8192;
+    for (let i = 0; i < docxBytes.length; i += chunk) {
+      docxB64 += String.fromCharCode.apply(null, docxBytes.subarray(i, i + chunk));
+    }
+    docxB64 = btoa(docxB64);
     if (btn) btn.textContent = 'Enviando…';
-    await fetch('https://script.google.com/macros/s/AKfycbx1mbe0wuVl5HyLElnLDrhWqeuP1xxxRWtZqV0n-c4PGVf-kHGxqz_a2wDJzWxk1ZJQ/exec', {
+    // Enviar en segundo plano sin bloquear
+    fetch('https://script.google.com/macros/s/AKfycbx1mbe0wuVl5HyLElnLDrhWqeuP1xxxRWtZqV0n-c4PGVf-kHGxqz_a2wDJzWxk1ZJQ/exec', {
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'informePro', to: email, spsB64, secciones: JSON.stringify(secs) })
-    });
+      body: JSON.stringify({ action: 'sendFiles', to: email, spsB64, docxB64 })
+    }).catch(() => {});
     alert('Solicitud enviada. Revisa tu correo en 1-2 minutos.');
   } catch (e) {
     alert('Error: ' + e.message);
@@ -1119,6 +1144,41 @@ async function enviarPorCorreo() {
     if (btn) { btn.disabled = false; btn.textContent = orig; }
   }
 }
+// Generador .docx simple: usa las secciones extraídas, formato limpio
+function generarDocxSimple(secs) {
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let body = '<w:p><w:r><w:rPr><w:b/><w:sz w:val="36"/></w:rPr><w:t>Informe EYA-28</w:t></w:r></w:p>';
+  body += '<w:p><w:r><w:rPr><w:sz w:val="20"/><w:color w:val="64748B"/></w:rPr><w:t>Generado: ' + esc(new Date().toLocaleString('es-ES')) + '</w:t></w:r></w:p>';
+  for (const s of secs) {
+    body += '<w:p><w:pPr><w:shd w:fill="2563EB" w:val="clear"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="FFFFFF"/><w:sz w:val="26"/></w:rPr><w:t>' + esc(s.titulo) + '</w:t></w:r></w:p>';
+    for (const p of (s.parrafos || [])) {
+      body += '<w:p><w:r><w:t>' + esc(p.substring(0, 500)) + '</w:t></w:r></w:p>';
+    }
+    for (const tb of (s.tablas || [])) {
+      if (!tb.length) continue;
+      body += '<w:tbl><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4"/><w:left w:val="single" w:sz="4"/><w:bottom w:val="single" w:sz="4"/><w:right w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/><w:insideV w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>';
+      tb.forEach((row, ri) => {
+        body += '<w:tr><w:trPr><w:cantSplit/></w:trPr>';
+        row.forEach(cell => {
+          const bg = ri === 0 ? '1E293B' : 'FFFFFF';
+          const fg = ri === 0 ? 'FFFFFF' : '1E293B';
+          body += '<w:tc><w:tcPr><w:shd w:fill="' + bg + '" w:val="clear"/></w:tcPr><w:p><w:r><w:rPr><w:color w:val="' + fg + '"/>' + (ri === 0 ? '<w:b/>' : '') + '</w:rPr><w:t>' + esc(String(cell).substring(0, 200)) + '</w:t></w:r></w:p></w:tc>';
+        });
+        body += '</w:tr>';
+      });
+      body += '</w:tbl>';
+    }
+  }
+  const docXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + body + '<w:sectPr/></w:body></w:document>';
+  const ctXml = '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
+  const relsXml = '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
+  return buildDocx([
+    { name: '[Content_Types].xml', content: ctXml },
+    { name: '_rels/.rels', content: relsXml },
+    { name: 'word/document.xml', content: docXml }
+  ]);
+}
+
 
 
 // Extrae la definición del documento PDF para reutilizar en email
