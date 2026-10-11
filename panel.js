@@ -1406,12 +1406,15 @@ function renderHero(db) {
 /* ---------- Captura HTML íntegro para réplica PDF/DOCX ---------- */
 async function capturarHTMLPanel() {
   try {
-    // Obtener el CSS actual
+    // Obtener el CSS actual (con timeout para no bloquear)
     let cssText = '';
     try {
-      const r = await fetch('styles.css');
+      const ctl = new AbortController();
+      const to = setTimeout(() => ctl.abort(), 3000);
+      const r = await fetch('styles.css', { signal: ctl.signal });
+      clearTimeout(to);
       if (r.ok) cssText = await r.text();
-    } catch (e) { /* sin CSS externo */ }
+    } catch (e) { /* sin CSS externo, continuar sin él */ }
     // CSS adicional para impresión
     const printCSS = `
       body{background:#fff !important;padding:2rem !important;}
