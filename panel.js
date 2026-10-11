@@ -1124,7 +1124,7 @@ async function enviarPorCorreo() {
     if (btn) btn.textContent = 'Generando archivos…';
     // Web Worker: genera DOCX + PDF sin bloquear
     const result = await new Promise((resolve, reject) => {
-      const worker = new Worker('informe-worker.js?v=45');
+      const worker = new Worker('informe-worker.js?v=46');
       worker.onmessage = (e) => {
         const d = e.data;
         if (d.status === 'docx' && btn) btn.textContent = 'Generando Word…';
