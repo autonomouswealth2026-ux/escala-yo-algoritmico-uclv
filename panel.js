@@ -1226,9 +1226,9 @@ async function solicitarInformePro() {
     const sps = generarSPS();
     // Captura HTML íntegro del panel para réplica pixel-perfect en PDF/DOCX
     const htmlCompleto = await capturarHTMLPanel();
-    // Captura de pantalla de las secciones (réplica visual exacta)
-    if (btn) btn.textContent = 'Capturando pantalla…';
-    const imagenes = await capturarSeccionesImagen();
+    // NOTA: capturas de pantalla desactivadas (payload demasiado grande → "failed to fetch")
+    // Se usa JSON estructurado con generador v5
+    const imagenes = [];
     // CSV limpio (primeras filas para no saturar)
     const csvData = typeof obtenerCSVLimpio !== 'undefined' ? obtenerCSVLimpio() : '';
     const payload = {
