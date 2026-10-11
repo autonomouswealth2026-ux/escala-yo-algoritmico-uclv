@@ -1126,45 +1126,67 @@ async function capturarSeccionesImagen() {
     return [];
   }
   const imagenes = [];
-  // Buscar el contenedor de resultados o las secciones
+  // Estrategia 1: capturar el contenedor completo de resultados
   const contenedor = document.getElementById('resultados') ||
                      document.querySelector('.resultados') ||
-                     document.getElementById('main-content');
+                     document.getElementById('main-content') ||
+                     document.querySelector('main');
   if (!contenedor) {
     console.warn('No se encontró contenedor de resultados');
     return [];
   }
-  // Capturar secciones individuales (cards o secciones)
-  const secciones = contenedor.querySelectorAll('.card, .seccion, section');
-  const elementos = secciones.length > 0 ? Array.from(secciones) : [contenedor];
+
+  // Primero intentar capturar secciones individuales
+  const secciones = contenedor.querySelectorAll('.card, .seccion, section, .result-block, [data-seccion]');
+  let elementos = secciones.length >= 3 ? Array.from(secciones) : [contenedor];
+
+  // Si hay muy pocas secciones, capturar el contenedor completo por partes
+  // (dividir en bloques de ~2000px de alto)
+  if (elementos.length < 3) {
+    const alturaTotal = contenedor.scrollHeight;
+    const alturaBloque = 2000;
+    const numBloques = Math.ceil(alturaTotal / alturaBloque);
+    elementos = [];
+    // Crear divs temporales para cada bloque no es trivial con html2canvas
+    // En su lugar, capturamos el contenedor completo (html2canvas lo maneja)
+    elementos = [contenedor];
+  }
 
   for (let i = 0; i < elementos.length; i++) {
     const el = elementos[i];
-    // Omitir elementos vacíos o muy pequeños
-    if (el.offsetHeight < 50) continue;
+    // Solo omitir elementos realmente vacíos (< 30px)
+    if (el.offsetHeight < 30) continue;
     try {
       const canvas = await html2canvas(el, {
-        scale: 1.5,
+        scale: 1.2,  // Reducir escala para imágenes más manejables
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight
       });
-      // Comprimir a JPEG calidad 0.85 para reducir tamaño
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      // Solo incluir si no es demasiado grande (< 800KB por imagen)
-      if (dataUrl.length < 800000) {
-        imagenes.push({
-          indice: i,
-          titulo: (el.querySelector('h1,h2,h3') || {}).textContent || ('Sección ' + (i+1)),
-          data: dataUrl
-        });
+      // JPEG calidad 0.8
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      // Límite más generoso: 1.2MB por imagen (el Worker soporta hasta ~5MB total)
+      if (dataUrl.length < 1200000) {
+        let titulo = 'Sección ' + (i+1);
+        const h = el.querySelector('h1,h2,h3');
+        if (h && h.textContent.trim()) {
+          titulo = h.textContent.trim().substring(0, 80);
+        }
+        imagenes.push({ indice: i, titulo: titulo, data: dataUrl });
+      } else {
+        console.warn('Imagen ' + i + ' demasiado grande (' + Math.round(dataUrl.length/1024) + 'KB), omitida');
       }
     } catch (e) {
       console.warn('Error capturando sección ' + i + ':', e);
     }
-    // Pequeña pausa para no saturar
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 100));
   }
+
+  // Si solo se capturó 1 imagen y es el contenedor completo, está bien
+  // (el procesador la dividirá por páginas)
+  console.log('Capturas realizadas: ' + imagenes.length);
   return imagenes;
 }
 
