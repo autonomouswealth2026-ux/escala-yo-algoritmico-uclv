@@ -436,9 +436,10 @@ function _posthocRows(pairs) {
 function renderTukey(res, varName) {
   if (res.error) return '<div class="sec"><p class="err">' + escHtml(res.error) + '</p></div>';
   let h = '<div class="sec"><h3>Comparaciones múltiples — HSD de Tukey (réplica SPSS: One-Way ANOVA → Post Hoc)</h3>';
+  const qc = (res.qcrit95 != null && isFinite(res.qcrit95) && res.qcrit95 > 0) ? f2(res.qcrit95) : 'n/d';
   h += '<p class="muted">Variable dependiente: ' + escHtml(varName || '—') +
     ' · MSW = ' + f2(res.msw) + ', gl = ' + res.dfw +
-    ', q crítico (.95) = ' + f2(res.qcrit95) + '</p>';
+    ', q crítico (.95) = ' + qc + '</p>';
   h += spssTable('Comparaciones múltiples — HSD de Tukey',
     ['Comparación (I−J)', 'Diferencia de medias', 'Error típico', 'Sig.', 'IC 95%', 'Significativa'],
     _posthocRows(res.pairs),
