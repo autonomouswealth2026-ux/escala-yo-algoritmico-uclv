@@ -758,22 +758,105 @@ function obtenerCSVLimpio() {
 function generarSPS() {
   if (!DB) { mostrarAviso('warn', 'Sin datos', 'Procesa primero una base de datos para generar la sintaxis.'); return; }
   try {
-  let s = `* EYA-28 · Sintaxis generada automáticamente por el panel del investigador.\n` +
+  let s = `* ============================================================.\n` +
+    `* EYA-28 · Sintaxis SPSS completa — réplica de las 25 secciones.\n` +
+    `* Generada automáticamente por el panel del investigador.\n` +
     `* n válido = ${DB.nValidos} de ${DB.total} casos importados.\n` +
-    `* Los datos ya vienen procesados en el CSV limpio; esta sintaxis reproduce\n` +
-    `* etiquetas, recodificación y cómputos para verificación en IBM SPSS.\n\n`;
-  s += `GET DATA /TYPE=TXT\n  /FILE='eya28_limpio.csv'\n  /DELIMITERS=","\n  /QUALIFIER='"'\n  /FIRSTCASE=2\n  /VARIABLES=\n    ID_SUJETO A20 EDAD F2.0 SEXO F1.0 CARRERA F1.0 ANO_ACADEMICO F1.0 USO_IA_FREQ F1.0\n`;
+    `* Para ejecutar: Ctrl+A (seleccionar todo), Ctrl+R (ejecutar).\n` +
+    `* O doble clic en ejecutar_eya28.bat para modo automático.\n` +
+    `* ============================================================.\n\n`;
+  s += `* --- 1. Carga de datos ---.\n` +
+    `GET DATA /TYPE=TXT\n  /FILE='eya28_limpio.csv'\n  /DELIMITERS=","\n  /QUALIFIER='"'\n  /FIRSTCASE=2\n  /VARIABLES=\n    ID_SUJETO A20 EDAD F2.0 SEXO F1.0 CARRERA F1.0 ANO_ACADEMICO F1.0 USO_IA_FREQ F1.0\n`;
   ITEMS.forEach(it => { s += `    ${it} F1.0\n`; });
   s += `    EYA_01_R F1.0 EYA_04_R F1.0\n    D1_COGNITIVA F2.0 D2_AFECTIVA F2.0 D3_CONDUCTUAL F2.0 D4_IDENTITARIA F2.0 EYA_TOTAL F3.0\n` +
     `    RT_TOTAL_MS F10.0 FLAG_RAPIDEZ F1.0 IMC_CONTROL F1.0 CALIDAD_OK F1.0\n  .\nCACHE.\nEXECUTE.\n\n`;
-  s += `VALUE LABELS\n  SEXO 1 'Masculino' 2 'Femenino'\n  /CARRERA 1 'Ingeniería Industrial' 2 'Sociología' 3 'Otra'\n` +
+  s += `* --- 2. Etiquetas de valor ---.\n` +
+    `VALUE LABELS\n  SEXO 1 'Masculino' 2 'Femenino'\n  /CARRERA 1 'Ingeniería Industrial' 2 'Sociología' 3 'Otra'\n` +
     `  /USO_IA_FREQ 1 'Rara vez/Nunca' 2 '1-2 veces/sem' 3 '3-4 veces/sem' 4 '5+ veces/sem'\n` +
     `  /EYA_01 TO EYA_28 1 'Totalmente en desacuerdo' 2 'En desacuerdo' 3 'Ni de acuerdo ni en desacuerdo' 4 'De acuerdo' 5 'Totalmente de acuerdo'\n` +
     `  /CALIDAD_OK 0 'Excluir' 1 'Incluir'.\nEXECUTE.\n\n`;
+  // 3. Descriptivos por subescala
+  s += `* --- 3. Descriptivos por subescala ---.\n` +
+    `DESCRIPTIVES VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL\n` +
+    `  /STATISTICS=MEAN STDDEV VARIANCE MIN MAX SEMEAN KURTOSIS SKEWNESS.\n\n`;
+  // 4. Fiabilidad Alfa de Cronbach
+  s += `* --- 4. Fiabilidad: Alfa de Cronbach ---.\n`;
   for (const esc in ESCALAS) {
     s += `RELIABILITY\n  /VARIABLES=${ESCALAS[esc].join(' ')}\n  /SCALE('${esc}') ALL\n  /MODEL=ALPHA\n  /STATISTICS=DESCRIPTIVE CORR\n  /SUMMARY=TOTAL.\n\n`;
   }
-  s += `DESCRIPTIVES VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL\n  /STATISTICS=MEAN STDDEV MIN MAX.\n`;
+  // 5. AFE: KMO, Bartlett, autovalores, Varimax
+  s += `* --- 5. Análisis Factorial Exploratorio (KMO, Bartlett, Varimax) ---.\n` +
+    `* Nota: EYA_15 es ítem de control, excluido del AFE.\n` +
+    `FACTOR\n  /VARIABLES EYA_01 EYA_02 EYA_03 EYA_04 EYA_05 EYA_06 EYA_07 EYA_08 EYA_09 EYA_10\n` +
+    `    EYA_11 EYA_12 EYA_13 EYA_14 EYA_16 EYA_17 EYA_18 EYA_19 EYA_20\n` +
+    `    EYA_21 EYA_22 EYA_23 EYA_24 EYA_25 EYA_26 EYA_27 EYA_28\n` +
+    `  /MISSING LISTWISE\n  /ANALYSIS EYA_01 EYA_02 EYA_03 EYA_04 EYA_05 EYA_06 EYA_07 EYA_08 EYA_09 EYA_10\n` +
+    `    EYA_11 EYA_12 EYA_13 EYA_14 EYA_16 EYA_17 EYA_18 EYA_19 EYA_20\n` +
+    `    EYA_21 EYA_22 EYA_23 EYA_24 EYA_25 EYA_26 EYA_27 EYA_28\n` +
+    `  /PRINT INITIAL KMO EXTRACTION ROTATION FSCORE\n` +
+    `  /PLOT EIGEN\n` +
+    `  /CRITERIA MINEIGEN(1) ITERATE(25)\n` +
+    `  /EXTRACTION PC\n` +
+    `  /ROTATION VARIMAX\n` +
+    `  /METHOD=CORRELATION.\n\n`;
+  // 6. Comparaciones por sexo, carrera, Levene
+  s += `* --- 6. Comparaciones por sexo y carrera + Levene ---.\n` +
+    `T-TEST GROUPS=SEXO(1 2)\n  /MISSING=ANALYSIS\n  /VARIABLES=EYA_TOTAL D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA\n` +
+    `  /CRITERIA=CI(.95).\n\n` +
+    `ONEWAY EYA_TOTAL D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA BY CARRERA\n` +
+    `  /STATISTICS DESCRIPTIVES HOMOGENEITY\n  /MISSING ANALYSIS.\n\n`;
+  // 7. Normalidad
+  s += `* --- 7. Pruebas de normalidad ---.\n` +
+    `EXAMINE VARIABLES=EYA_TOTAL D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA\n` +
+    `  /PLOT BOXPLOT NPPLOT\n  /STATISTICS DESCRIPTIVES\n  /CINTERVAL 95\n  /MISSING LISTWISE.\n\n`;
+  // 8. AFC/SEM (requiere AMOS)
+  s += `* --- 8. AFC/SEM ---.\n` +
+    `* NOTA: El AFC confirmatorio requiere IBM SPSS Amos (módulo separado).\n` +
+    `* El panel implementa CFA aproximado; para réplica exacta usar Amos.\n\n`;
+  // 9. Correlaciones Pearson y Spearman
+  s += `* --- 9. Correlaciones Pearson ---.\n` +
+    `CORRELATIONS\n  /VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL\n` +
+    `  /PRINT=TWOTAIL NOSIG\n  /MISSING=PAIRWISE.\n\n` +
+    `* --- 10. Correlaciones Spearman ---.\n` +
+    `NONPAR CORR\n  /VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL\n` +
+    `  /PRINT=SPEARMAN TWOTAIL NOSIG\n  /MISSING=PAIRWISE.\n\n`;
+  // 11. Tablas de contingencia
+  s += `* --- 11. Tablas de contingencia ---.\n` +
+    `CROSSTABS\n  /TABLES=SEXO BY CARRERA\n  /FORMAT=AVALUE TABLES\n  /STATISTICS=CHISQ PHI\n  /CELLS=COUNT EXPECTED ROW COLUMN TOTAL\n  /COUNT ROUND CELL.\n\n` +
+    `CROSSTABS\n  /TABLES=USO_IA_FREQ BY SEXO\n  /FORMAT=AVALUE TABLES\n  /STATISTICS=CHISQ\n  /CELLS=COUNT ROW COLUMN.\n\n`;
+  // 12. Post-hoc Tukey y Games-Howell
+  s += `* --- 12. Post-hoc: Tukey y Games-Howell ---.\n` +
+    `ONEWAY EYA_TOTAL BY CARRERA\n  /STATISTICS DESCRIPTIVES\n  /POSTHOC=TUKEY GH ALPHA(0.05).\n\n` +
+    `ONEWAY EYA_TOTAL BY ANO_ACADEMICO\n  /POSTHOC=TUKEY GH ALPHA(0.05).\n\n` +
+    `ONEWAY EYA_TOTAL BY USO_IA_FREQ\n  /POSTHOC=TUKEY GH ALPHA(0.05).\n\n`;
+  // 13. MANOVA
+  s += `* --- 13. MANOVA ---.\n` +
+    `GLM D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA BY SEXO CARRERA\n` +
+    `  /METHOD=SSTYPE(3)\n  /PRINT=DESCRIPTIVE HOMOGENEITY\n  /CRITERIA=ALPHA(.05)\n  /DESIGN=SEXO CARRERA SEXO*CARRERA.\n\n`;
+  // 14. K-Means
+  s += `* --- 14. Análisis de conglomerados K-Means ---.\n` +
+    `QUICK CLUSTER D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA\n` +
+    `  /MISSING=LISTWISE\n  /CRITERIA=CLUSTER(3) MXITER(10) CONVERGE(0)\n` +
+    `  /METHOD=KMEANS(NOUPDATE)\n  /SAVE CLUSTER\n` +
+    `  /PRINT INITIAL ANOVA.\n\n`;
+  // 15. Regresión múltiple
+  s += `* --- 15. Regresión lineal múltiple ---.\n` +
+    `REGRESSION\n  /MISSING LISTWISE\n  /STATISTICS COEFF OUTS R ANOVA\n` +
+    `  /CRITERIA=PIN(.05) POUT(.10)\n  /NOORIGIN\n` +
+    `  /DEPENDENT EYA_TOTAL\n  /METHOD=ENTER D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EDAD.\n\n`;
+  // 16. No paramétricas
+  s += `* --- 16. Pruebas no paramétricas ---.\n` +
+    `NPAR TESTS\n  /M-W= EYA_TOTAL BY SEXO(1 2)\n  /MISSING ANALYSIS.\n\n` +
+    `NPAR TESTS\n  /K-W= EYA_TOTAL BY CARRERA(1 3)\n  /MISSING ANALYSIS.\n\n`;
+  // 17. Gráficos
+  s += `* --- 17. Gráficos ---.\n` +
+    `GRAPH\n  /HISTOGRAM=EYA_TOTAL.\n\n` +
+    `GRAPH\n  /BAR(SIMPLE)=COUNT BY CARRERA.\n\n` +
+    `GRAPH\n  /SCATTERPLOT(BIVAR)=D1_COGNITIVA WITH D2_AFECTIVA.\n\n` +
+    `EXAMINE VARIABLES=EYA_TOTAL BY SEXO\n  /PLOT=BOXPLOT\n  /MISSING=LISTWISE.\n\n`;
+  s += `* ============================================================.\n` +
+    `* Fin de la sintaxis EYA-28.\n` +
+    `* ============================================================.\n`;
   return s;
   } catch (e) {
     mostrarAviso('error', 'Error al generar la sintaxis', e.message);
