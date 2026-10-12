@@ -1,6 +1,6 @@
 // Configuración del relay Cloudflare Workers (reemplaza Apps Script)
 const WORKER_URL = 'https://relay-panel.carlosmiguelvaldesrodriguez.workers.dev/ingesta';
-const WORKER_TOKEN = 't4HFQABHgxxv92IZwJSFMD_7q2fDck5hqfDhf6tfFg4';
+const WORKER_TOKEN = 'HEgv4lwo20md84B9R1nkOgpOEIWLuOk5E_yz3T8s_G8';
 
 /* EYA-28 · Panel del investigador · réplica completa del pipeline SPSS en JS vanilla */
 'use strict';
