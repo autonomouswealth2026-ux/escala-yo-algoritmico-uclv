@@ -1117,6 +1117,144 @@ function extraerSecciones() {
   return secs;
 }
 
+// v58: Extracción fiel del informe completo (25 secciones, 32 tablas, 4 gráficos SVG)
+// Reproduce la estructura exacta del panel sin reorganizar, filtrar ni deduplicar.
+// Basado en auditoría exhaustiva 2026-10-12.
+async function extraerInformeFiel() {
+  const host = document.getElementById('p-out');
+  if (!host) return [];
+  const secciones = [];
+  const secEls = host.querySelectorAll('.sec');
+  let orden = 0;
+
+  // Helper: convertir SVG a PNG base64
+  async function svgAImagen(svgEl) {
+    try {
+      const xml = new XMLSerializer().serializeToString(svgEl);
+      const svg64 = btoa(unescape(encodeURIComponent(xml)));
+      const img = new Image();
+      await new Promise((res, rej) => {
+        img.onload = res; img.onerror = rej;
+        img.src = 'data:image/svg+xml;base64,' + svg64;
+      });
+      const canvas = document.createElement('canvas');
+      const w = svgEl.viewBox?.baseVal?.width || svgEl.width?.baseVal?.value || 800;
+      const h = svgEl.viewBox?.baseVal?.height || svgEl.height?.baseVal?.value || 600;
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      return canvas.toDataURL('image/jpeg', 0.85);
+    } catch (e) {
+      console.warn('No se pudo convertir SVG:', e);
+      return null;
+    }
+  }
+
+  for (const sec of secEls) {
+    orden++;
+    const h3 = sec.querySelector(':scope > h3');
+    const titulo = h3 ? h3.textContent.trim() : ('Sección ' + orden);
+    const bloques = [];
+
+    // Recorrer hijos directos en orden para preservar la secuencia
+    for (const child of sec.children) {
+      const tag = child.tagName;
+      if (tag === 'H3') continue; // Ya capturado como título
+      if (tag === 'H4') {
+        bloques.push({ tipo: 'subtitulo', texto: child.textContent.trim() });
+      } else if (tag === 'P') {
+        const t = child.textContent.trim();
+        // No filtrar: capturar todo excepto placeholders de carga
+        if (t && !t.match(/^Calculando…?$/) && !t.match(/^Entrenando…?$/)) {
+          bloques.push({ tipo: 'parrafo', texto: t });
+        }
+      } else if (tag === 'TABLE') {
+        const rows = Array.from(child.querySelectorAll('tr')).map(tr =>
+          Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
+        if (rows.length) {
+          // Buscar caption: h4 o texto precedente
+          let caption = '';
+          let prev = child.previousElementSibling;
+          while (prev && !caption) {
+            if (prev.tagName === 'H4') caption = prev.textContent.trim();
+            else if (prev.tagName === 'P' && prev.textContent.trim().length > 0 &&
+                     prev.textContent.trim().length < 200) caption = prev.textContent.trim();
+            prev = prev.previousElementSibling;
+            if (prev && prev.tagName === 'H3') break;
+          }
+          bloques.push({ tipo: 'tabla', caption: caption,
+            columnas: rows[0], filas: rows.slice(1) });
+        }
+      } else if (tag === 'DIV') {
+        // Divs especiales con resultados (cfa, mlp, multiv, posthoc)
+        const id = child.id || '';
+        if (['cfa-result', 'mlp-result', 'multiv-result', 'posthoc-tables', 'multiv-tables'].includes(id)) {
+          const t = child.textContent.trim();
+          if (t && t.length > 10) {
+            // Si contiene tablas, extraerlas también
+            const tbls = child.querySelectorAll('table');
+            if (tbls.length) {
+              // Texto introductorio
+              const txtNodes = [];
+              for (const n of child.childNodes) {
+                if (n.nodeType === 3 && n.textContent.trim()) txtNodes.push(n.textContent.trim());
+                else if (n.nodeType === 1 && n.tagName === 'P' && n.textContent.trim()) txtNodes.push(n.textContent.trim());
+              }
+              if (txtNodes.length) bloques.push({ tipo: 'parrafo', texto: txtNodes.join(' ') });
+              tbls.forEach(tbl => {
+                const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
+                  Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
+                if (rows.length) bloques.push({ tipo: 'tabla', caption: '',
+                  columnas: rows[0], filas: rows.slice(1) });
+              });
+            } else {
+              bloques.push({ tipo: 'parrafo', texto: t });
+            }
+          }
+        } else {
+          // Div genérico: buscar tablas y SVGs dentro
+          const tbls = child.querySelectorAll(':scope > table');
+          tbls.forEach(tbl => {
+            const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
+              Array.from(tr.querySelectorAll('th,td')).map(td => td.textContent.trim()));
+            if (rows.length) bloques.push({ tipo: 'tabla', caption: '',
+              columnas: rows[0], filas: rows.slice(1) });
+          });
+          // Párrafos dentro del div
+          child.querySelectorAll(':scope > p').forEach(p => {
+            const t = p.textContent.trim();
+            if (t && t.length > 5 && !t.match(/^Calculando…?$/)) bloques.push({ tipo: 'parrafo', texto: t });
+          });
+        }
+      }
+    }
+
+    // SVGs en la sección (gráficos) — convertir a imagen
+    const svgs = sec.querySelectorAll('svg');
+    for (const svg of svgs) {
+      // Buscar título del gráfico (h4 precedente)
+      let gTitulo = '';
+      let el = svg;
+      // Subir hasta encontrar el contenedor y buscar h4
+      const container = svg.closest('div');
+      if (container) {
+        const h4 = container.querySelector('h4');
+        if (h4) gTitulo = h4.textContent.trim();
+      }
+      const imgData = await svgAImagen(svg);
+      if (imgData) bloques.push({ tipo: 'grafico', titulo: gTitulo, imagen: imgData });
+    }
+
+    // Solo incluir secciones con contenido
+    if (bloques.length > 0) {
+      secciones.push({ orden: orden, titulo: titulo, bloques: bloques });
+    }
+  }
+  console.log('Informe fiel extraído: ' + secciones.length + ' secciones');
+  return secciones;
+}
+
 // Solicita el informe profesional generado por el asistente
 // Captura cada sección de resultados como imagen PNG (base64)
 // para réplica pixel-perfect en el informe.
@@ -1222,7 +1360,7 @@ async function solicitarInformePro() {
     await esperarAnalisis();
     if (btn) btn.textContent = 'Recopilando datos…';
     await new Promise(r => setTimeout(r, 30));
-    const secs = extraerSecciones();
+    const secs = await extraerInformeFiel();
     const sps = generarSPS();
     const sessionId = 'csv-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
 
@@ -1261,7 +1399,8 @@ async function solicitarInformePro() {
       secciones: secs,
       sps: sps,
       csv_session: sessionId,
-      replicar_en_navegador: true
+      informe_fiel: true,
+      generador: 'v7'
     };
     if (btn) btn.textContent = 'Enviando solicitud…';
     const resp = await fetch(WORKER_URL, {
