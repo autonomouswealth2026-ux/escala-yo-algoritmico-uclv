@@ -1226,25 +1226,26 @@ async function extraerInformeFiel() {
             const t = p.textContent.trim();
             if (t && t.length > 5 && !t.match(/^Calculando…?$/)) bloques.push({ tipo: 'parrafo', texto: t });
           });
+          // SVGs dentro del div (gráficos) — capturar inline con su h4 previo
+          const divSvgs = child.querySelectorAll('svg');
+          for (const svg of divSvgs) {
+            // El título es el último h4 capturado como subtitulo
+            let gTitulo = '';
+            for (let i = bloques.length - 1; i >= 0; i--) {
+              if (bloques[i].tipo === 'subtitulo') {
+                gTitulo = bloques[i].texto;
+                break;
+              }
+            }
+            const imgData = await svgAImagen(svg);
+            // No duplicar título: el subtitulo ya está en bloques, usar título vacío
+            if (imgData) bloques.push({ tipo: 'grafico', titulo: '', imagen: imgData });
+          }
         }
       }
     }
 
-    // SVGs en la sección (gráficos) — convertir a imagen
-    const svgs = sec.querySelectorAll('svg');
-    for (const svg of svgs) {
-      // Buscar título del gráfico (h4 precedente)
-      let gTitulo = '';
-      let el = svg;
-      // Subir hasta encontrar el contenedor y buscar h4
-      const container = svg.closest('div');
-      if (container) {
-        const h4 = container.querySelector('h4');
-        if (h4) gTitulo = h4.textContent.trim();
-      }
-      const imgData = await svgAImagen(svg);
-      if (imgData) bloques.push({ tipo: 'grafico', titulo: gTitulo, imagen: imgData });
-    }
+    // (SVGs capturados inline en el loop principal para preservar orden)
 
     // Solo incluir secciones con contenido
     if (bloques.length > 0) {
