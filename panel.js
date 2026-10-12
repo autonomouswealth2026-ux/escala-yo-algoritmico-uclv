@@ -1224,6 +1224,35 @@ async function solicitarInformePro() {
     await new Promise(r => setTimeout(r, 30));
     const secs = extraerSecciones();
     const sps = generarSPS();
+    const sessionId = 'csv-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+
+    // Enviar CSV por fragmentos (automático, sin intervención del usuario)
+    if (btn) btn.textContent = 'Enviando datos…';
+    try {
+      if (typeof obtenerCSVLimpio !== 'undefined') {
+        const csvData = obtenerCSVLimpio();
+        if (csvData && typeof csvData === 'string' && csvData.length > 0) {
+          const CHUNK = 80000; // 80KB por fragmento
+          const total = Math.ceil(csvData.length / CHUNK);
+          for (let i = 0; i < total; i++) {
+            const parte = csvData.substring(i * CHUNK, (i + 1) * CHUNK);
+            await fetch(WORKER_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-ingesta-token': WORKER_TOKEN },
+              body: JSON.stringify({
+                action: 'csvChunk',
+                csv_session: sessionId,
+                csv_index: i,
+                csv_total: total,
+                csv_data: parte
+              })
+            });
+            if (btn) btn.textContent = `Enviando datos… ${i+1}/${total}`;
+          }
+        }
+      }
+    } catch (e) { console.warn('Error enviando CSV por partes:', e); }
+
     const payload = {
       action: 'solicitudInforme',
       to: email.e1,
@@ -1231,6 +1260,7 @@ async function solicitarInformePro() {
       meta: { n: (typeof DB !== 'undefined' && DB.length) ? DB.length : 0, fecha: new Date().toISOString() },
       secciones: secs,
       sps: sps,
+      csv_session: sessionId,
       replicar_en_navegador: true
     };
     if (btn) btn.textContent = 'Enviando solicitud…';
