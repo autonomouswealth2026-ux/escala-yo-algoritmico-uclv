@@ -157,13 +157,49 @@ function validateModule(mi) {
   document.getElementById('err-m' + mi).hidden = ok;
   return ok;
 }
+const UMBRAL_PALABRAS = {
+  'EYA_01': 16,
+  'EYA_02': 17,
+  'EYA_03': 22,
+  'EYA_04': 17,
+  'EYA_05': 17,
+  'EYA_06': 20,
+  'EYA_07': 21,
+  'EYA_08': 20,
+  'EYA_09': 17,
+  'EYA_10': 20,
+  'EYA_11': 22,
+  'EYA_12': 15,
+  'EYA_13': 17,
+  'EYA_14': 19,
+  'EYA_15': 22,
+  'EYA_16': 22,
+  'EYA_17': 22,
+  'EYA_18': 18,
+  'EYA_19': 20,
+  'EYA_20': 20,
+  'EYA_21': 18,
+  'EYA_22': 20,
+  'EYA_23': 21,
+  'EYA_24': 21,
+  'EYA_25': 19,
+  'EYA_26': 20,
+  'EYA_27': 17,
+  'EYA_28': 21,
+};
+function umbralItem(code) {
+  const p = UMBRAL_PALABRAS[code] || 15;
+  return Math.max(2000, p * 200 + 600);
+}
+
 /* ============ Respuesta + telemetría ============ */
 function answer(code, val, btn) {
   const now = performance.now();
   if (S.lastT !== null) {
     const dt = now - S.lastT;
     S.rt[code] = Math.round(dt);
-    if (dt < 1200) { S.fastStreak++; } else { S.fastStreak = 0; }
+    const umb = umbralItem(code);
+    if (dt < umb) { S.fastStreak++; } else { S.fastStreak = 0; }
     if (S.fastStreak >= 3 && !S.modalShown) { S.modalShown = true; S.flagRapidez = 1; showPause(); }
   } else {
     S.rt[code] = 0;
@@ -179,13 +215,16 @@ function showPause() {
   const mb = document.getElementById('modal-pausa');
   const btn = document.getElementById('btn-pausa');
   const cnt = document.getElementById('count');
-  mb.hidden = false; btn.disabled = true;
-  let n = 5; cnt.textContent = n;
-  const iv = setInterval(() => {
-    n--; cnt.textContent = n;
-    if (n <= 0) { clearInterval(iv); btn.disabled = false; btn.innerHTML = 'Continuar'; }
-  }, 1000);
-  btn.onclick = () => { mb.hidden = true; };
+  const tOpen = performance.now();
+  mb.hidden = false; btn.disabled = false;
+  btn.innerHTML = 'Entendido, continuar';
+  if (cnt) cnt.textContent = '';
+  btn.onclick = () => {
+    const dwell = Math.round(performance.now() - tOpen);
+    S.pauseDwellMs = (S.pauseDwellMs || 0) + dwell;
+    try { if (typeof save === 'function') save(); } catch(e) {}
+    mb.hidden = true;
+  };
 }
 /* ============ Finalizar + envío con cola persistente ============ */
 const PENDING_KEY = 'eya28_pending_v1';
