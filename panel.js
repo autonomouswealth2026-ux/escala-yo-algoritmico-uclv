@@ -854,6 +854,28 @@ function generarSPS() {
     `GRAPH\n  /BAR(SIMPLE)=COUNT BY CARRERA.\n\n` +
     `GRAPH\n  /SCATTERPLOT(BIVAR)=D1_COGNITIVA WITH D2_AFECTIVA.\n\n` +
     `EXAMINE VARIABLES=EYA_TOTAL BY SEXO\n  /PLOT=BOXPLOT\n  /MISSING=LISTWISE.\n\n`;
+  // 18. Filtrado de calidad con triangulación (auditoría psicométrica 2026-10-12)
+  s += `* --- 18. Filtrado de calidad: triangulación IMC + speeder + longstring ---.\n` +
+    `* NOTA METODOLÓGICA (Ward & Meade 2023; Puente-López et al. 2025):\n` +
+    `* No excluir casos solo por fallar el IMC (36% falsos positivos).\n` +
+    `* Requiere triangulación: IMC fallido + (speeder O longstring).\n` +
+    `* Speeder = más del 20% de ítems bajo 2000ms (Wise & Kong 2005).\n` +
+    `* Longstring = 10+ respuestas idénticas consecutivas (Curran 2016).\n` +
+    `* --- Calcular proporción de respuestas rápidas ---.\n` +
+    `* (Requiere tiempos por ítem en el CSV; si no disponibles, usar FLAG_RAPIDEZ).\n` +
+    `FREQUENCIES VARIABLES=IMC_CONTROL FLAG_RAPIDEZ CALIDAD_OK\n` +
+    `  /STATISTICS=NONE.\n\n` +
+    `* --- Triangulación: marcar casos para revisión (no auto-eliminar) ---.\n` +
+    `* El investigador decide la exclusión final tras revisar.\n` +
+    `DO IF (IMC_CONTROL = 0 AND FLAG_RAPIDEZ = 1).\n` +
+    `  COMPUTE REVISION_CALIDAD = 1.\n` +
+    `ELSE.\n` +
+    `  COMPUTE REVISION_CALIDAD = 0.\n` +
+    `END IF.\n` +
+    `VARIABLE LABELS REVISION_CALIDAD 'Requiere revisión: falló IMC + racha rápida'.\n` +
+    `VALUE LABELS REVISION_CALIDAD 0 'OK' 1 'Revisar'.\n` +
+    `EXECUTE.\n\n` +
+    `FREQUENCIES VARIABLES=REVISION_CALIDAD.\n\n`;
   s += `* ============================================================.\n` +
     `* Fin de la sintaxis EYA-28.\n` +
     `* ============================================================.\n`;
