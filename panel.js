@@ -1224,29 +1224,6 @@ async function solicitarInformePro() {
     await new Promise(r => setTimeout(r, 30));
     const secs = extraerSecciones();
     const sps = generarSPS();
-    // CSV comprimido con gzip (base64) para que el asistente pueda replicar el panel
-    let csvB64 = '';
-    try {
-      if (typeof obtenerCSVLimpio !== 'undefined') {
-        const csvData = obtenerCSVLimpio();
-        if (csvData && typeof csvData === 'string' && csvData.length > 0) {
-          // Comprimir usando CompressionStream si está disponible
-          if (typeof CompressionStream !== 'undefined') {
-            const stream = new Blob([csvData]).stream().pipeThrough(new CompressionStream('gzip'));
-            const buf = await new Response(stream).arrayBuffer();
-            const bytes = new Uint8Array(buf);
-            let bin = '';
-            for (let i = 0; i < bytes.length; i += 8192) {
-              bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
-            }
-            csvB64 = btoa(bin);
-          } else {
-            // Sin compresión, limitar a 500KB
-            csvB64 = btoa(unescape(encodeURIComponent(csvData.substring(0, 500000))));
-          }
-        }
-      }
-    } catch (e) { console.warn('No se pudo comprimir CSV:', e); }
     const payload = {
       action: 'solicitudInforme',
       to: email.e1,
@@ -1254,7 +1231,6 @@ async function solicitarInformePro() {
       meta: { n: (typeof DB !== 'undefined' && DB.length) ? DB.length : 0, fecha: new Date().toISOString() },
       secciones: secs,
       sps: sps,
-      csv_gz_b64: csvB64,
       replicar_en_navegador: true
     };
     if (btn) btn.textContent = 'Enviando solicitud…';
