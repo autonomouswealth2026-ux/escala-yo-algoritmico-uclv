@@ -23,7 +23,7 @@ const MODULES = [
   { id: 'D2', title: 'Bloque 2 de 4 · Experiencias y emociones',
     note: 'Va por buen camino. El siguiente bloque indaga en sus hábitos y conductas de estudio con estas herramientas.',
     items: [
-      ['EYA_08', 'Cuando no tengo conexión a internet o hay apagones, experimento angustia o bloqueo mental al intentar avanzar en mis estudios.'],
+      ['EYA_08', 'Durante un apagón o cuando no tengo conexión, experimento angustia o bloqueo mental al intentar avanzar en mis estudios.'],
       ['EYA_09', 'Consultar con la IA durante momentos de sobrecarga académica me produce una sensación de tranquilidad y acompañamiento.'],
       ['EYA_10', 'Me resulta frustrante e irritante tener que resolver tareas académicas de forma analógica tradicional (libros físicos o apuntes en papel).'],
       ['EYA_11', 'Sentir que dependo de la IA para cumplir con mis entregas universitarias me genera temor a quedar rezagado si la herramienta falla.'],
@@ -165,7 +165,7 @@ const UMBRAL_PALABRAS = {
   'EYA_05': 17,
   'EYA_06': 20,
   'EYA_07': 21,
-  'EYA_08': 20,
+  'EYA_08': 19,
   'EYA_09': 17,
   'EYA_10': 20,
   'EYA_11': 22,
