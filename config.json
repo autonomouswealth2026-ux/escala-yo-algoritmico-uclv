@@ -1,19 +1,160 @@
 {
- "titulo": "Escala del Yo Algorítmico (EYA-28)",
- "presentacion": [
-  "Somos un grupo de investigadores de la carrera de Psicología de la Universidad Central Marta Abreu de Las Villas.",
-  "Usted ha sido seleccionado(a) para participar en una investigación que caracterizará el impacto psicológico de la interacción cotidiana con Inteligencia Artificial en la configuración del Yo Algorítmico.",
-  "Queremos resaltar que su participación es completamente voluntaria y anónima. La información proporcionada tendrá un carácter confidencial y solo será utilizada para los fines del estudio."
- ],
- "notaDuracion": "Duración aproximada: 8–10 minutos. Puede interrumpir y continuar después; su progreso se guarda automáticamente en este dispositivo.",
- "consentimiento": "He leído la información y acepto participar voluntariamente.",
- "notasSeccion": {
-  "D1": "Ha completado la primera parte. Tómese un momento: las siguientes afirmaciones exploran sus procesos de pensamiento con estas herramientas.",
-  "D2": "Va por buen camino. Las siguientes afirmaciones exploran sus experiencias emocionales con estas herramientas.",
-  "IMC": null,
-  "D3": "Ya casi termina. Las siguientes afirmaciones indagan en sus hábitos y conductas de estudio con estas herramientas.",
-  "D4": "Ya casi termina. Este último bloque explora cómo percibe su relación con estas herramientas."
- },
- "items": {},
- "itemSet": null
+  "titulo": "Escala del Yo Algorítmico (EYA-28)",
+  "presentacion": [
+    "Somos un grupo de investigadores de la carrera de Psicología de la Universidad Central Marta Abreu de Las Villas.",
+    "Usted ha sido seleccionado(a) para participar en una investigación que caracterizará el impacto psicológico de la interacción cotidiana con Inteligencia Artificial en la configuración del Yo Algorítmico.",
+    "Queremos resaltar que su participación es completamente voluntaria y anónima. La información proporcionada tendrá un carácter confidencial y solo será utilizada para los fines del estudio."
+  ],
+  "notaDuracion": "Duración aproximada: 8–10 minutos. Puede interrumpir y continuar después; su progreso se guarda automáticamente en este dispositivo. [PRUEBA RELAY]",
+  "consentimiento": "He leído la información y acepto participar voluntariamente.",
+  "notasSeccion": {
+    "D1": "Ha completado la primera parte. Tómese un momento: las siguientes afirmaciones exploran sus procesos de pensamiento con estas herramientas.",
+    "D2": "Va por buen camino. Las siguientes afirmaciones exploran sus experiencias emocionales con estas herramientas.",
+    "IMC": null,
+    "D3": "Ya casi termina. Las siguientes afirmaciones indagan en sus hábitos y conductas de estudio con estas herramientas.",
+    "D4": "Ya casi termina. Este último bloque explora cómo percibe su relación con estas herramientas."
+  },
+  "items": {},
+  "itemSet": [
+    {
+      "code": "EYA_01",
+      "block": "D1",
+      "stem": "Cuando utilizo una IA para mis tareas, reviso críticamente sus respuestas antes de aceptarlas como válidas."
+    },
+    {
+      "code": "EYA_02",
+      "block": "D1",
+      "stem": "Acudo directamente a la IA para que resuelva problemas complejos sin intentar pensarlos primero por mí mismo."
+    },
+    {
+      "code": "EYA_03",
+      "block": "D1",
+      "stem": "Al entregar un trabajo redactado con ayuda de la IA, siento que domino el tema aunque solo haya evaluado el resultado final."
+    },
+    {
+      "code": "EYA_04",
+      "block": "D1",
+      "stem": "Modifico las explicaciones que me da la IA para adaptarlas a mi propio criterio y razonamiento personal."
+    },
+    {
+      "code": "EYA_05",
+      "block": "D1",
+      "stem": "Suelo pedirle a la IA que me resuma las lecturas obligatorias para evitar leer los textos completos."
+    },
+    {
+      "code": "EYA_06",
+      "block": "D1",
+      "stem": "Siento que mi capacidad académica real es mayor cuando cuento con la asistencia de la IA que cuando trabajo solo."
+    },
+    {
+      "code": "EYA_07",
+      "block": "D1",
+      "stem": "Si una tarea requiere razonamiento lógico o matemático extenso, prefiero que la IA plantee los pasos en lugar de deducirlos yo."
+    },
+    {
+      "code": "EYA_08",
+      "block": "D2",
+      "stem": "Durante un apagón o cuando no tengo conexión, experimento angustia o bloqueo mental al intentar avanzar en mis estudios."
+    },
+    {
+      "code": "EYA_09",
+      "block": "D2",
+      "stem": "Consultar con la IA durante momentos de sobrecarga académica me produce una sensación de tranquilidad y acompañamiento."
+    },
+    {
+      "code": "EYA_10",
+      "block": "D2",
+      "stem": "Me resulta frustrante e irritante tener que resolver tareas académicas de forma analógica tradicional (libros físicos o apuntes en papel)."
+    },
+    {
+      "code": "EYA_11",
+      "block": "D2",
+      "stem": "Sentir que dependo de la IA para cumplir con mis entregas universitarias me genera temor a quedar rezagado si la herramienta falla."
+    },
+    {
+      "code": "EYA_12",
+      "block": "D2",
+      "stem": "Busco la confirmación de la IA para sentirme seguro del valor de mis ideas académicas."
+    },
+    {
+      "code": "EYA_13",
+      "block": "D2",
+      "stem": "Pierdo la paciencia con facilidad cuando la IA comete errores lógicos o inventa información en sus respuestas."
+    },
+    {
+      "code": "EYA_14",
+      "block": "D2",
+      "stem": "Ante una desconexión forzada de la red, suelo paralizar o posponer mis tareas hasta que regrese el servicio digital."
+    },
+    {
+      "code": "EYA_15",
+      "block": "IMC",
+      "stem": "Para verificar que la pantalla del formulario se visualiza correctamente en su dispositivo, seleccione en este ítem la opción \"Totalmente en desacuerdo\"."
+    },
+    {
+      "code": "EYA_16",
+      "block": "D3",
+      "stem": "Abrir el chat de la IA es el primer paso reflejo que realizo cada vez que me asignan un trabajo académico nuevo."
+    },
+    {
+      "code": "EYA_17",
+      "block": "D3",
+      "stem": "Copio y pego fragmentos generados por la IA en mis tareas para ahorrar tiempo y evitar el desgaste de escribir desde cero."
+    },
+    {
+      "code": "EYA_18",
+      "block": "D3",
+      "stem": "Si sé que no tendré acceso a la IA, evito iniciar tareas que exijan análisis o redacción compleja."
+    },
+    {
+      "code": "EYA_19",
+      "block": "D3",
+      "stem": "Utilizo la IA mediante instrucciones directas que resuelvan la tarea entera en lugar de usarla como una guía de consulta."
+    },
+    {
+      "code": "EYA_20",
+      "block": "D3",
+      "stem": "He dejado de consultar fuentes primarias o libros en la biblioteca universitaria debido a la rapidez de las respuestas digitales."
+    },
+    {
+      "code": "EYA_21",
+      "block": "D3",
+      "stem": "Mi rutina diaria de estudio se detiene casi por completo cuando no puedo interactuar con herramientas de IA."
+    },
+    {
+      "code": "EYA_22",
+      "block": "D4",
+      "stem": "Me preocupa que mi futuro desempeño profesional se vea comprometido si tengo que ejercer sin el apoyo de la IA."
+    },
+    {
+      "code": "EYA_23",
+      "block": "D4",
+      "stem": "Percibo que la IA se ha convertido en una extensión indispensable de mi propia mente para poder rendir en la universidad."
+    },
+    {
+      "code": "EYA_24",
+      "block": "D4",
+      "stem": "A veces siento que los trabajos académicos que entrego no reflejan mi voz personal, sino el estilo impersonal de la máquina."
+    },
+    {
+      "code": "EYA_25",
+      "block": "D4",
+      "stem": "Aunque obtengo buenas calificaciones con ayuda de la IA, experimento el temor de no ser tan competente como aparento."
+    },
+    {
+      "code": "EYA_26",
+      "block": "D4",
+      "stem": "Me cuesta diferenciar cuáles ideas de mis trabajos surgieron de mi propio pensamiento y cuáles fueron aportadas por el algoritmo."
+    },
+    {
+      "code": "EYA_27",
+      "block": "D4",
+      "stem": "Siento culpa ética cuando mis profesores elogian redacciones o análisis que fueron producidos mayormente por la IA."
+    },
+    {
+      "code": "EYA_28",
+      "block": "D4",
+      "stem": "Percibo que la forma de pensar de la IA impone puntos de vista estandarizados que chocan con mi realidad sociocultural local."
+    }
+  ]
 }
