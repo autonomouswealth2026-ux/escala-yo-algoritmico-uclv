@@ -218,27 +218,8 @@
     var cfg = currentTexts();
     var panel = el('div');
     panel.id = 'eya-editor-panel';
-    panel.innerHTML = '<h2>Editor del cuestionario (prototipo)</h2>';
+    panel.innerHTML = '<h2>Editor del cuestionario</h2>';
     panel.appendChild(el('p', 'eya-who', 'Sesión: ' + email));
-    var note = el('p', 'eya-note',
-      'Vista previa local: los cambios se aplican a esta página para ' +
-      'revisarlos y quedan guardados en este navegador, así que el ' +
-      'cuestionario los internaliza automáticamente sin descargar ' +
-      'ningún archivo. Para que los vean otros dispositivos o los ' +
-      'respondientes hay que publicar el config.json descargado en ' +
-      'el repo, solo con aprobación expresa de Carlos. Los ítems se ' +
-      'pueden redactar de nuevo, mover de bloque, ordenar dentro del ' +
-      'bloque, eliminar o añadir, ' +
-      'pero ojo: cualquier cambio de redacción o de composición deja ' +
-      'de estar cubierto por la validación original del instrumento, ' +
-      'y las respuestas ya recogidas para un ítem eliminado no se ' +
-      'borran de la hoja. El ítem de verificación (bloque IMC) es de ' +
-      'control (su texto dice qué opción elegir): si se cambia su ' +
-      'instrucción o se elimina, el control de calidad deja de valer. ' +
-      'Los códigos se ajustan solos al orden actual: al mover, añadir ' +
-      'o eliminar un ítem, todos se renumeran EYA_01, EYA_02, … en el ' +
-      'orden en que aparecen, sin huecos.');
-    panel.appendChild(note);
 
     var fields = {};
     function addField(key, label, value, textarea) {
