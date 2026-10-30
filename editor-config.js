@@ -17,6 +17,6 @@
   var root = (typeof window !== 'undefined') ? window : globalThis;
   root.EYA_EDITOR_CONFIG = {
     clientId: '389001527752-qo8jjpt77m30ljjp7opuhgfp7b4tbv27.apps.googleusercontent.com',
-    relayUrl: ''
+    relayUrl: 'https://script.google.com/macros/s/AKfycbwoffmpWQ_ClS5p-hHOS_XCd3RlOC5iH-K-gd3xLR6vPgvsHD0UMMZotYXLyUyM5xumTg/exec'
   };
 })();
