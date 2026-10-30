@@ -529,7 +529,7 @@
       pubStatus.textContent = 'Publicando…';
       fetch(relayUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ token: idToken || '', config: collectFromFields(fields, workingItems) })
       })
         .then(function (r) { return r.json(); })
