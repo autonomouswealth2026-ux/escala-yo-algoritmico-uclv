@@ -1,0 +1,19 @@
+{
+ "titulo": "Escala del Yo Algorítmico (EYA-28)",
+ "presentacion": [
+  "Somos un grupo de investigadores de la carrera de Psicología de la Universidad Central Marta Abreu de Las Villas.",
+  "Usted ha sido seleccionado(a) para participar en una investigación que caracterizará el impacto psicológico de la interacción cotidiana con Inteligencia Artificial en la configuración del Yo Algorítmico.",
+  "Queremos resaltar que su participación es completamente voluntaria y anónima. La información proporcionada tendrá un carácter confidencial y solo será utilizada para los fines del estudio."
+ ],
+ "notaDuracion": "Duración aproximada: 8–10 minutos. Puede interrumpir y continuar después; su progreso se guarda automáticamente en este dispositivo.",
+ "consentimiento": "He leído la información y acepto participar voluntariamente.",
+ "notasSeccion": {
+  "D1": "Ha completado la primera parte. Tómese un momento: las siguientes afirmaciones exploran sus procesos de pensamiento con estas herramientas.",
+  "D2": "Va por buen camino. Las siguientes afirmaciones exploran sus experiencias emocionales con estas herramientas.",
+  "IMC": null,
+  "D3": "Ya casi termina. Las siguientes afirmaciones indagan en sus hábitos y conductas de estudio con estas herramientas.",
+  "D4": "Ya casi termina. Este último bloque explora cómo percibe su relación con estas herramientas."
+ },
+ "items": {},
+ "itemSet": null
+}

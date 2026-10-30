@@ -5,15 +5,63 @@ const WORKER_TOKEN = 'Yb3K9mQvX7nP2wL8sT4uR6vE0aC5dF1gH';
 /* EYA-28 · Panel del investigador · réplica completa del pipeline SPSS en JS vanilla */
 'use strict';
 
-const ITEMS = Array.from({length: 28}, (_, i) => 'EYA_' + String(i + 1).padStart(2, '0'));
+/* Conjunto vigente: por defecto, el original de 28 ítems. Si config.json
+   (publicado por el editor) trae itemSet, estas variables se reconstruyen
+   desde él antes de procesar: así el panel asimila añadir, eliminar,
+   mover o redactar ítems sin tocar este código. Sin config.json válido,
+   todo sigue exactamente como antes. */
+const ITEMS_DEFAULT = Array.from({length: 28}, (_, i) => 'EYA_' + String(i + 1).padStart(2, '0'));
 const INVERTIDOS = ['EYA_01', 'EYA_04'];
-const ESCALAS = {
+const ESCALAS_DEFAULT = {
   D1_COGNITIVA: ['EYA_01_R', 'EYA_02', 'EYA_03', 'EYA_04_R', 'EYA_05', 'EYA_06', 'EYA_07'],
   D2_AFECTIVA: ['EYA_08', 'EYA_09', 'EYA_10', 'EYA_11', 'EYA_12', 'EYA_13', 'EYA_14'],
   D3_CONDUCTUAL: ['EYA_16', 'EYA_17', 'EYA_18', 'EYA_19', 'EYA_20', 'EYA_21'],
   D4_IDENTITARIA: ['EYA_22', 'EYA_23', 'EYA_24', 'EYA_25', 'EYA_26', 'EYA_27', 'EYA_28']
 };
-const RANGOS = { D1_COGNITIVA: [7, 35], D2_AFECTIVA: [7, 35], D3_CONDUCTUAL: [6, 30], D4_IDENTITARIA: [7, 35] };
+const RANGOS_DEFAULT = { D1_COGNITIVA: [7, 35], D2_AFECTIVA: [7, 35], D3_CONDUCTUAL: [6, 30], D4_IDENTITARIA: [7, 35] };
+let ITEMS = ITEMS_DEFAULT.slice();
+let ESCALAS = JSON.parse(JSON.stringify(ESCALAS_DEFAULT));
+let RANGOS = JSON.parse(JSON.stringify(RANGOS_DEFAULT));
+let HAS_IMC = true;
+let ITEM_BLOCKS = {};
+let INVERTIDOS_EFECTIVOS = INVERTIDOS.slice();
+let ITEMSET_PROMISE = null;
+function cargarItemSet() {
+  if (ITEMSET_PROMISE) return ITEMSET_PROMISE;
+  ITEMSET_PROMISE = fetch('config.json', { cache: 'no-store' })
+    .then(r => { if (!r.ok) throw new Error('sin config'); return r.json(); })
+    .then(cfg => {
+      const set = (cfg && Array.isArray(cfg.itemSet)) ? cfg.itemSet : null;
+      if (!set || !set.length) return false;
+      const seen = {};
+      const clean = [];
+      set.forEach(it => {
+        if (!it || !/^EYA_\d+$/.test(it.code)) return;
+        if (['D1', 'D2', 'IMC', 'D3', 'D4'].indexOf(it.block) === -1) return;
+        if (seen[it.code]) return;
+        seen[it.code] = true;
+        clean.push(it);
+      });
+      if (!clean.length) return false;
+      ITEMS = clean.map(it => it.code);
+      ITEM_BLOCKS = {};
+      clean.forEach(it => { ITEM_BLOCKS[it.code] = it.block; });
+      const mapa = { D1: 'D1_COGNITIVA', D2: 'D2_AFECTIVA', D3: 'D3_CONDUCTUAL', D4: 'D4_IDENTITARIA' };
+      ESCALAS = {};
+      RANGOS = {};
+      Object.keys(mapa).forEach(b => {
+        const cods = clean.filter(it => it.block === b)
+          .map(it => (INVERTIDOS.indexOf(it.code) !== -1 ? it.code + '_R' : it.code));
+        ESCALAS[mapa[b]] = cods;
+        RANGOS[mapa[b]] = [cods.length, cods.length * 5];
+      });
+      INVERTIDOS_EFECTIVOS = INVERTIDOS.filter(c => ITEMS.indexOf(c) !== -1);
+      HAS_IMC = clean.some(it => it.block === 'IMC');
+      return true;
+    })
+    .catch(() => false);
+  return ITEMSET_PROMISE;
+}
 const DEMO_LABELS = {
   SEXO: {1: 'Masculino', 2: 'Femenino'},
   CARRERA: {1: 'Ingeniería Industrial', 2: 'Sociología', 3: 'Otra'},
@@ -143,8 +191,9 @@ function procesar(rows) {
   header.forEach((h, i) => { idx[h] = i; });
   // Tolerar columna "Marca temporal" al inicio (la agrega Apps Script)
 
-  const faltantes = ['ID_SUJETO', 'EDAD', ...ITEMS, 'RT_TOTAL_MS', 'FLAG_RAPIDEZ', 'IMC_CONTROL']
-    .filter(c => !(c in idx));
+  const requeridas = ['ID_SUJETO', 'EDAD', ...ITEMS, 'RT_TOTAL_MS', 'FLAG_RAPIDEZ'];
+  if (HAS_IMC) requeridas.push('IMC_CONTROL');
+  const faltantes = requeridas.filter(c => !(c in idx));
   if (faltantes.length) throw new Error('Columnas faltantes en el CSV: ' + faltantes.join(', '));
 
   const casos = [];
@@ -162,15 +211,15 @@ function procesar(rows) {
       caso[it] = v;
     });
     caso._valido = valido;
-    // Recodificar invertidos
-    INVERTIDOS.forEach(it => { caso[it + '_R'] = 6 - caso[it]; });
-    // Subescalas
+    // Recodificar invertidos (solo los presentes en el conjunto vigente)
+    INVERTIDOS_EFECTIVOS.forEach(it => { caso[it + '_R'] = (caso[it] == null ? null : 6 - caso[it]); });
+    // Subescalas (suma solo valores presentes; una dimensión vacía queda en 0)
     for (const esc in ESCALAS) {
-      caso[esc] = ESCALAS[esc].reduce((s, it) => s + caso[it], 0);
+      caso[esc] = ESCALAS[esc].reduce((s, it) => s + (typeof caso[it] === 'number' ? caso[it] : 0), 0);
     }
-    caso.EYA_TOTAL = caso.D1_COGNITIVA + caso.D2_AFECTIVA + caso.D3_CONDUCTUAL + caso.D4_IDENTITARIA;
-    // Filtros de calidad
-    caso.CALIDAD_OK = (caso.IMC_CONTROL === 1 && caso.FLAG_RAPIDEZ === 0 && (caso.RT_TOTAL_MS || 0) >= 90000 && valido) ? 1 : 0;
+    caso.EYA_TOTAL = (caso.D1_COGNITIVA || 0) + (caso.D2_AFECTIVA || 0) + (caso.D3_CONDUCTUAL || 0) + (caso.D4_IDENTITARIA || 0);
+    // Filtros de calidad (el IMC solo se exige si el conjunto vigente tiene ítem de control)
+    caso.CALIDAD_OK = ((HAS_IMC ? caso.IMC_CONTROL === 1 : true) && caso.FLAG_RAPIDEZ === 0 && (caso.RT_TOTAL_MS || 0) >= 90000 && valido) ? 1 : 0;
     casos.push(caso);
   }
 
@@ -194,7 +243,7 @@ function render(db) {
   // Resumen
   h += `<div class="sec"><h3>Resumen de la muestra</h3><div class="card-body">`;
   h += `<p>Casos importados: <strong>${total}</strong> · Válidos: <strong>${nValidos}</strong> · Excluidos por calidad: <strong>${excluidos}</strong></p>`;
-  h += `<p class="muted">Criterios de exclusión: falló el control atencional (IMC), respuestas a velocidad imposible (&lt;1200 ms × 3), tiempo total &lt; 90 s, o valores fuera de rango.</p>`;
+  h += `<p class="muted">Criterios de exclusión: ` + (HAS_IMC ? 'falló el control atencional (IMC), ' : '') + `respuestas a velocidad imposible (&lt;1200 ms × 3), tiempo total &lt; 90 s, o valores fuera de rango.</p>`;
   h += `</div></div>`;
 
   if (!nValidos) {
@@ -748,8 +797,10 @@ function descargar(nombre, contenido, tipo) {
 function obtenerCSVLimpio() {
   if (!DB || !DB.validos) return '';
   const cols = ['ID_SUJETO', 'EDAD', 'SEXO', 'CARRERA', 'ANO_ACADEMICO', 'USO_IA_FREQ',
-    ...ITEMS, 'EYA_01_R', 'EYA_04_R', 'D1_COGNITIVA', 'D2_AFECTIVA', 'D3_CONDUCTUAL',
-    'D4_IDENTITARIA', 'EYA_TOTAL', 'RT_TOTAL_MS', 'FLAG_RAPIDEZ', 'IMC_CONTROL', 'CALIDAD_OK'];
+    ...ITEMS, ...INVERTIDOS_EFECTIVOS.map(it => it + '_R'), 'D1_COGNITIVA', 'D2_AFECTIVA', 'D3_CONDUCTUAL',
+    'D4_IDENTITARIA', 'EYA_TOTAL', 'RT_TOTAL_MS', 'FLAG_RAPIDEZ'];
+  if (HAS_IMC) cols.push('IMC_CONTROL');
+  cols.push('CALIDAD_OK');
   const lines = [cols.join(',')];
   DB.validos.forEach(c => lines.push(cols.map(k => c[k] == null ? '' : c[k]).join(',')));
   return '﻿' + lines.join('\n');
@@ -768,12 +819,12 @@ function generarSPS() {
   s += `* --- 1. Carga de datos ---.\n` +
     `GET DATA /TYPE=TXT\n  /FILE='eya28_limpio.csv'\n  /DELIMITERS=","\n  /QUALIFIER='"'\n  /FIRSTCASE=2\n  /VARIABLES=\n    ID_SUJETO A20 EDAD F2.0 SEXO F1.0 CARRERA F1.0 ANO_ACADEMICO F1.0 USO_IA_FREQ F1.0\n`;
   ITEMS.forEach(it => { s += `    ${it} F1.0\n`; });
-  s += `    EYA_01_R F1.0 EYA_04_R F1.0\n    D1_COGNITIVA F2.0 D2_AFECTIVA F2.0 D3_CONDUCTUAL F2.0 D4_IDENTITARIA F2.0 EYA_TOTAL F3.0\n` +
+  s += `    ${INVERTIDOS_EFECTIVOS.map(it => it + '_R F1.0').join(' ')}\n    D1_COGNITIVA F2.0 D2_AFECTIVA F2.0 D3_CONDUCTUAL F2.0 D4_IDENTITARIA F2.0 EYA_TOTAL F3.0\n` +
     `    RT_TOTAL_MS F10.0 FLAG_RAPIDEZ F1.0 IMC_CONTROL F1.0 CALIDAD_OK F1.0\n  .\nCACHE.\nEXECUTE.\n\n`;
   s += `* --- 2. Etiquetas de valor ---.\n` +
     `VALUE LABELS\n  SEXO 1 'Masculino' 2 'Femenino'\n  /CARRERA 1 'Ingeniería Industrial' 2 'Sociología' 3 'Otra'\n` +
     `  /USO_IA_FREQ 1 'Rara vez/Nunca' 2 '1-2 veces/sem' 3 '3-4 veces/sem' 4 '5+ veces/sem'\n` +
-    `  /EYA_01 TO EYA_28 1 'Totalmente en desacuerdo' 2 'En desacuerdo' 3 'Ni de acuerdo ni en desacuerdo' 4 'De acuerdo' 5 'Totalmente de acuerdo'\n` +
+    `  /${ITEMS.join(' ')} 1 'Totalmente en desacuerdo' 2 'En desacuerdo' 3 'Ni de acuerdo ni en desacuerdo' 4 'De acuerdo' 5 'Totalmente de acuerdo'\n` +
     `  /CALIDAD_OK 0 'Excluir' 1 'Incluir'.\nEXECUTE.\n\n`;
   // 3. Descriptivos por subescala
   s += `* --- 3. Descriptivos por subescala ---.\n` +
@@ -786,13 +837,9 @@ function generarSPS() {
   }
   // 5. AFE: KMO, Bartlett, autovalores, Varimax
   s += `* --- 5. Análisis Factorial Exploratorio (KMO, Bartlett, Varimax) ---.\n` +
-    `* Nota: EYA_15 es ítem de control, excluido del AFE.\n` +
-    `FACTOR\n  /VARIABLES EYA_01 EYA_02 EYA_03 EYA_04 EYA_05 EYA_06 EYA_07 EYA_08 EYA_09 EYA_10\n` +
-    `    EYA_11 EYA_12 EYA_13 EYA_14 EYA_16 EYA_17 EYA_18 EYA_19 EYA_20\n` +
-    `    EYA_21 EYA_22 EYA_23 EYA_24 EYA_25 EYA_26 EYA_27 EYA_28\n` +
-    `  /MISSING LISTWISE\n  /ANALYSIS EYA_01 EYA_02 EYA_03 EYA_04 EYA_05 EYA_06 EYA_07 EYA_08 EYA_09 EYA_10\n` +
-    `    EYA_11 EYA_12 EYA_13 EYA_14 EYA_16 EYA_17 EYA_18 EYA_19 EYA_20\n` +
-    `    EYA_21 EYA_22 EYA_23 EYA_24 EYA_25 EYA_26 EYA_27 EYA_28\n` +
+    (HAS_IMC ? `* Nota: ${ITEMS.find(c => ITEM_BLOCKS[c] === 'IMC')} es ítem de control, excluido del AFE.\n` : ``) +
+    `FACTOR\n  /VARIABLES ${ITEMS.filter(it => ITEM_BLOCKS[it] !== 'IMC').join(' ')}\n` +
+    `  /MISSING LISTWISE\n  /ANALYSIS ${ITEMS.filter(it => ITEM_BLOCKS[it] !== 'IMC').join(' ')}\n` +
     `  /PRINT INITIAL KMO EXTRACTION ROTATION FSCORE\n` +
     `  /PLOT EIGEN\n` +
     `  /CRITERIA MINEIGEN(1) ITERATE(25)\n` +
@@ -901,6 +948,7 @@ async function cargar() {
   if (lbl) { lbl.innerHTML = '<span class="spinner" aria-hidden="true"></span> Procesando…'; }
   const prog = document.getElementById('p-progress');
   try {
+    await cargarItemSet();
     const file = document.getElementById('csv-file').files[0];
     let text;
     if (file) {
@@ -935,6 +983,7 @@ document.getElementById('btn-demo').addEventListener('click', async () => {
   const btn = document.getElementById('btn-demo');
   btn.disabled = true; btn.textContent = 'Cargando demo…';
   try {
+    await cargarItemSet();
     const r = await fetch('demo5000.csv');
     if (!r.ok) throw new Error('No se pudo cargar la demo (HTTP ' + r.status + ').');
     let text = await r.text();

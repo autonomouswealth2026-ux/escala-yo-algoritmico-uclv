@@ -10,7 +10,7 @@ const LIKERT = [
 ];
 const MODULES = [
   { id: 'D1', title: 'Bloque 1 de 4 · Procesos de pensamiento',
-    note: 'Ha completado la primera parte. Tómese un momento: las siguientes afirmaciones exploran sus experiencias emocionales con estas herramientas.',
+    note: 'Ha completado la primera parte. Tómese un momento: las siguientes afirmaciones exploran sus procesos de pensamiento con estas herramientas.',
     items: [
       ['EYA_01', 'Cuando utilizo una IA para mis tareas, reviso críticamente sus respuestas antes de aceptarlas como válidas.'],
       ['EYA_02', 'Acudo directamente a la IA para que resuelva problemas complejos sin intentar pensarlos primero por mí mismo.'],
@@ -21,7 +21,7 @@ const MODULES = [
       ['EYA_07', 'Si una tarea requiere razonamiento lógico o matemático extenso, prefiero que la IA plantee los pasos en lugar de deducirlos yo.']
     ]},
   { id: 'D2', title: 'Bloque 2 de 4 · Experiencias y emociones',
-    note: 'Va por buen camino. El siguiente bloque indaga en sus hábitos y conductas de estudio con estas herramientas.',
+    note: 'Va por buen camino. Las siguientes afirmaciones exploran sus experiencias emocionales con estas herramientas.',
     items: [
       ['EYA_08', 'Durante un apagón o cuando no tengo conexión, experimento angustia o bloqueo mental al intentar avanzar en mis estudios.'],
       ['EYA_09', 'Consultar con la IA durante momentos de sobrecarga académica me produce una sensación de tranquilidad y acompañamiento.'],
@@ -37,7 +37,7 @@ const MODULES = [
       ['EYA_15', 'Para verificar que la pantalla del formulario se visualiza correctamente en su dispositivo, seleccione en este ítem la opción "Totalmente en desacuerdo".']
     ]},
   { id: 'D3', title: 'Bloque 3 de 4 · Hábitos de estudio',
-    note: 'Ya casi termina. Este último bloque explora cómo percibe su relación con estas herramientas.',
+    note: 'Ya casi termina. Las siguientes afirmaciones indagan en sus hábitos y conductas de estudio con estas herramientas.',
     items: [
       ['EYA_16', 'Abrir el chat de la IA es el primer paso reflejo que realizo cada vez que me asignan un trabajo académico nuevo.'],
       ['EYA_17', 'Copio y pego fragmentos generados por la IA en mis tareas para ahorrar tiempo y evitar el desgaste de escribir desde cero.'],
@@ -47,7 +47,7 @@ const MODULES = [
       ['EYA_21', 'Mi rutina diaria de estudio se detiene casi por completo cuando no puedo interactuar con herramientas de IA.']
     ]},
   { id: 'D4', title: 'Bloque 4 de 4 · Su relación con la IA',
-    note: null,
+    note: 'Ya casi termina. Este último bloque explora cómo percibe su relación con estas herramientas.',
     items: [
       ['EYA_22', 'Me preocupa que mi futuro desempeño profesional se vea comprometido si tengo que ejercer sin el apoyo de la IA.'],
       ['EYA_23', 'Percibo que la IA se ha convertido en una extensión indispensable de mi propia mente para poder rendir en la universidad.'],
@@ -58,6 +58,10 @@ const MODULES = [
       ['EYA_28', 'Percibo que la forma de pensar de la IA impone puntos de vista estandarizados que chocan con mi realidad sociocultural local.']
     ]}
 ];
+/* Copia prístina del banco original (para restablecer desde el editor
+   después de una vista previa que ya mutó MODULES). */
+const MODULES_ORIGINAL = JSON.parse(JSON.stringify(MODULES));
+window.EYA_MODULES_ORIGINAL = MODULES_ORIGINAL;
 /* ============ Estado ============ */
 const LS_KEY = 'eya28_state_v1';
 let S = load() || fresh();
@@ -278,7 +282,13 @@ function flushPending() {
 function finish() {
   S.done = true;
   const rtTotal = S.t0 ? Math.round(Date.now() - S.t0) : 0;
-  const imc = S.ans['EYA_15'] === '1' ? 1 : 0;
+  /* El ítem de control se identifica por su bloque IMC, no por su
+   * código: con la renumeración automática su código cambia con su
+   * posición. Sin itemSet aplicado, el banco original lo deja en
+   * EYA_15, así que este lookup es compatible hacia atrás. */
+  const imcMod = MODULES.find(m => m.id === 'IMC');
+  const imcCode = imcMod && imcMod.items.length ? imcMod.items[0][0] : null;
+  const imc = imcCode && S.ans[imcCode] === '1' ? 1 : 0;
   const payload = Object.assign({
     ID_SUJETO: S.id, RT_TOTAL_MS: rtTotal, FLAG_RAPIDEZ: S.flagRapidez, IMC_CONTROL: imc
   }, S.demo, S.ans);
@@ -302,7 +312,124 @@ function restoreDemo() {
   });
   if (S.demo.ANO_ACADEMICO) document.getElementById('ano').value = S.demo.ANO_ACADEMICO;
 }
+/* ============ Textos editables (prototipo del panel de edición) ============ */
+/* Aplica un config de textos (de config.json o del editor) sobre la
+   página y sobre las notas de los módulos. Antes del primer render
+   actualiza MODULES para que renderModules() ya use los textos nuevos;
+   después del render, sincroniza además las notas visibles en el DOM.
+   Ítems: cfg.itemSet (lista completa [{code, block, stem}]) sustituye
+   el banco entero; si no hay itemSet, cfg.items solo sobrescribe
+   redacciones. Sin itemSet en el config, un conjunto guardado en este
+   navegador por el editor (localStorage) también se aplica: así el
+   cuestionario "internaliza" las modificaciones automáticamente en
+   este dispositivo, sin descargar ningún archivo. Solo cambia la
+   redacción o la composición; nunca la puntuación. El umbral de
+   lectura rápida de cada ítem se recalcula con el número de palabras
+   de la redacción vigente. */
+var ITEMSET_LS_KEY = 'eya28_editor_itemset_v1';
+function cleanItemSet(set) {
+  if (!Array.isArray(set)) return null;
+  var seen = {};
+  var out = [];
+  set.forEach(function (it) {
+    if (!it || typeof it.code !== 'string' || typeof it.stem !== 'string') return;
+    if (!/^EYA_\d+$/.test(it.code)) return;
+    if (['D1', 'D2', 'IMC', 'D3', 'D4'].indexOf(it.block) === -1) return;
+    if (!it.stem.trim() || seen[it.code]) return;
+    seen[it.code] = true;
+    out.push({ code: it.code, block: it.block, stem: it.stem.trim() });
+  });
+  return out.length ? out : null;
+}
+function applyItemSet(set) {
+  var clean = cleanItemSet(set);
+  if (!clean) return false;
+  MODULES.forEach(function (mod) {
+    mod.items = clean.filter(function (it) { return it.block === mod.id; })
+      .map(function (it) { return [it.code, it.stem]; });
+  });
+  clean.forEach(function (it) {
+    UMBRAL_PALABRAS[it.code] = it.stem.split(/\s+/).length;
+  });
+  return true;
+}
+window.EYA_applyItemSet = applyItemSet;
+window.EYA_cleanItemSet = cleanItemSet;
+function applyTextConfig(cfg) {
+  if (!cfg) return;
+  var t0 = document.getElementById('t0');
+  if (t0 && cfg.titulo) t0.textContent = cfg.titulo;
+  var body = document.querySelector('#step-0 .card-body');
+  if (body) {
+    var paras = body.querySelectorAll('p:not(.muted)');
+    if (Array.isArray(cfg.presentacion)) {
+      paras.forEach(function (p, i) {
+        if (i < cfg.presentacion.length) p.textContent = cfg.presentacion[i];
+      });
+      for (var i = cfg.presentacion.length; i < paras.length; i++) paras[i].remove();
+      var muted = body.querySelector('p.muted');
+      for (var j = paras.length; j < cfg.presentacion.length; j++) {
+        var np = document.createElement('p');
+        np.textContent = cfg.presentacion[j];
+        body.insertBefore(np, muted);
+      }
+    }
+    var m = body.querySelector('p.muted');
+    if (m && cfg.notaDuracion) m.textContent = cfg.notaDuracion;
+    var cs = body.querySelector('.consent span');
+    if (cs && cfg.consentimiento) cs.textContent = cfg.consentimiento;
+  }
+  if (cfg.notasSeccion) {
+    MODULES.forEach(function (mod, mi) {
+      var v = cfg.notasSeccion[mod.id];
+      mod.note = (v === undefined || v === null || v === '') ? null : v;
+      var sec = document.getElementById('step-m' + mi);
+      if (!sec) return;
+      var noteEl = sec.querySelector('.transition-note');
+      if (mod.note) {
+        if (noteEl) { noteEl.textContent = mod.note; }
+        else {
+          var d = document.createElement('div');
+          d.className = 'transition-note';
+          d.textContent = mod.note;
+          var head = sec.querySelector('.card-head');
+          sec.insertBefore(d, head.nextSibling);
+        }
+      } else if (noteEl) { noteEl.remove(); }
+    });
+  }
+  if (cfg.itemSet && cleanItemSet(cfg.itemSet)) {
+    applyItemSet(cfg.itemSet);
+  } else if (cfg.items && typeof cfg.items === 'object') {
+    MODULES.forEach(function (mod) {
+      mod.items.forEach(function (item) {
+        var code = item[0];
+        var v = cfg.items[code];
+        if (typeof v !== 'string' || !v.trim()) return;
+        item[1] = v.trim();
+        UMBRAL_PALABRAS[code] = v.trim().split(/\s+/).length;
+        var el = document.querySelector('.item[data-item="' + code + '"] .stem');
+        if (el) el.textContent = v.trim();
+      });
+    });
+  }
+  if (!cfg.itemSet) {
+    try {
+      var saved = JSON.parse(localStorage.getItem(ITEMSET_LS_KEY) || 'null');
+      if (saved) applyItemSet(saved);
+    } catch (e) {}
+  }
+  /* Vista previa del editor (página ya renderizada): reconstruir los
+     módulos con el conjunto vigente y volver al paso en curso. */
+  if (document.querySelector('#modules .step')) {
+    renderModules();
+    if (S.step && document.getElementById(S.step)) goto(S.step);
+    else goto('step-0');
+  }
+}
+window.EYA_applyTextConfig = applyTextConfig;
 /* ============ Init ============ */
+function initApp() {
 renderModules();
 restoreDemo();
 // Reintento manual
@@ -316,3 +443,15 @@ if (getPending().length) {
 } else if (S.done) { goto('step-final'); updatePendingUI(0); }
 else if (S.step && document.getElementById(S.step)) { goto(S.step); }
 else { goto('step-0'); }
+}
+/* Cargar textos editables (config.json si existe; si no, valores por
+   defecto idénticos a los actuales) y solo entonces iniciar. */
+if (typeof EYA_loadTextConfig === 'function') {
+  EYA_loadTextConfig().then(function (cfg) {
+    window.EYA_TEXT_CONFIG = cfg;
+    applyTextConfig(cfg);
+    initApp();
+  });
+} else {
+  initApp();
+}
