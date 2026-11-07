@@ -3,8 +3,8 @@
  * config.json (opcional, en la misma carpeta) puede sobrescribir estos
  * valores. Si config.json no existe o no se puede leer, se usan los
  * valores por defecto de abajo, que son los textos del cuestionario tras la corrección de notas del
- * 2026-10-29 (cada nota describe el tema de su propio bloque; el
- * Bloque 4 tiene nota propia). Los 28 ítems se editan solo por sobrescritura en
+ * 2026-10-29 (cada nota describe el tema de su propia dimensión; la
+ * Dimensión 4 tiene nota propia). Los 28 ítems se editan solo por sobrescritura en
  * config.items (código → redacción nueva); sin sobrescritura se usan
  * las redacciones originales del banco de reactivos en app.js. Cambiar
  * la redacción de un ítem cambia lo que mide el instrumento validado:
@@ -27,7 +27,7 @@
       D2: 'Va por buen camino. Las siguientes afirmaciones exploran sus experiencias emocionales con estas herramientas.',
       IMC: null,
       D3: 'Ya casi termina. Las siguientes afirmaciones indagan en sus hábitos y conductas de estudio con estas herramientas.',
-      D4: 'Ya casi termina. Este último bloque explora cómo percibe su relación con estas herramientas.'
+      D4: 'Ya casi termina. Esta última dimensión explora cómo percibe su relación con estas herramientas.'
     },
     items: {},
     itemSet: null

@@ -817,12 +817,12 @@ function generarSPS() {
     `* O doble clic en ejecutar_eya28.bat para modo automático.\n` +
     `* ============================================================.\n\n`;
   s += `* --- 1. Carga de datos ---.\n` +
-    `GET DATA /TYPE=TXT\n  /FILE='eya28_limpio.csv'\n  /DELIMITERS=","\n  /QUALIFIER='"'\n  /FIRSTCASE=2\n  /VARIABLES=\n    ID_SUJETO A20 EDAD F2.0 SEXO F1.0 CARRERA F1.0 ANO_ACADEMICO F1.0 USO_IA_FREQ F1.0\n`;
+    `GET DATA /TYPE=TXT\n  /FILE='eya28_limpio.csv'\n  /DELIMITERS=","\n  /QUALIFIER='"'\n  /FIRSTCASE=2\n  /VARIABLES=\n    ID_SUJETO A20 EDAD F2.0 SEXO F1.0 CARRERA A40 ANO_ACADEMICO F1.0 USO_IA_FREQ F1.0\n`;
   ITEMS.forEach(it => { s += `    ${it} F1.0\n`; });
   s += `    ${INVERTIDOS_EFECTIVOS.map(it => it + '_R F1.0').join(' ')}\n    D1_COGNITIVA F2.0 D2_AFECTIVA F2.0 D3_CONDUCTUAL F2.0 D4_IDENTITARIA F2.0 EYA_TOTAL F3.0\n` +
     `    RT_TOTAL_MS F10.0 FLAG_RAPIDEZ F1.0 IMC_CONTROL F1.0 CALIDAD_OK F1.0\n  .\nCACHE.\nEXECUTE.\n\n`;
   s += `* --- 2. Etiquetas de valor ---.\n` +
-    `VALUE LABELS\n  SEXO 1 'Masculino' 2 'Femenino'\n  /CARRERA 1 'Ingeniería Industrial' 2 'Sociología' 3 'Otra'\n` +
+    `VALUE LABELS\n  SEXO 1 'Masculino' 2 'Femenino'\n` +
     `  /USO_IA_FREQ 1 'Rara vez/Nunca' 2 '1-2 veces/sem' 3 '3-4 veces/sem' 4 '5+ veces/sem'\n` +
     `  /${ITEMS.join(' ')} 1 'Totalmente en desacuerdo' 2 'En desacuerdo' 3 'Ni de acuerdo ni en desacuerdo' 4 'De acuerdo' 5 'Totalmente de acuerdo'\n` +
     `  /CALIDAD_OK 0 'Excluir' 1 'Incluir'.\nEXECUTE.\n\n`;
@@ -848,6 +848,7 @@ function generarSPS() {
     `  /METHOD=CORRELATION.\n\n`;
   // 6. Comparaciones por sexo, carrera, Levene
   s += `* --- 6. Comparaciones por sexo y carrera + Levene ---.\n` +
+    `* NOTA: CARRERA es texto libre desde 2026-11-07 (A40). Los ONEWAY BY CARRERA requieren recodificar el texto a códigos numéricos antes de ejecutarlos; CROSSTABS y GLM aceptan la variable como texto.\n` +
     `T-TEST GROUPS=SEXO(1 2)\n  /MISSING=ANALYSIS\n  /VARIABLES=EYA_TOTAL D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA\n` +
     `  /CRITERIA=CI(.95).\n\n` +
     `ONEWAY EYA_TOTAL D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA BY CARRERA\n` +

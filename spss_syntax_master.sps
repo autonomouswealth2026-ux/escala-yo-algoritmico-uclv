@@ -8,6 +8,10 @@
 *  3. Seleccione todo (Ctrl+A) y pulse Ejecutar.
 * El script importa, rotula, recodifica invertidos, computa
 * subescalas, filtra por calidad (IMC + velocidad) y corre fiabilidad.
+* NOTA 2026-11-07: CARRERA es texto libre (A40). Los ONEWAY BY CARRERA
+* requieren recodificar el texto a códigos numéricos antes de ejecutarlos.
+* Datos recogidos antes con códigos: 1 'Ingeniería Industrial'
+* 2 'Sociología' 3 'Otra'.
 * ============================================================.
 
 * ---------- 1. IMPORTAR CSV ----------.
@@ -24,7 +28,7 @@ GET DATA /TYPE=TXT
     ID_SUJETO A20
     EDAD F2.0
     SEXO F1.0
-    CARRERA F1.0
+    CARRERA A40
     ANO_ACADEMICO F1.0
     USO_IA_FREQ F1.0
     EYA_01 F1.0 EYA_02 F1.0 EYA_03 F1.0 EYA_04 F1.0 EYA_05 F1.0
@@ -84,7 +88,6 @@ VARIABLE LABELS
 * ---------- 3. ETIQUETAS DE VALOR ----------.
 VALUE LABELS
   SEXO 1 'Masculino' 2 'Femenino'
-  /CARRERA 1 'Ingeniería Industrial' 2 'Sociología' 3 'Otra'
   /ANO_ACADEMICO 1 '1ro' 2 '2do' 3 '3ro' 4 '4to' 5 '5to'
   /USO_IA_FREQ 1 'Rara vez/Nunca' 2 '1-2 veces/sem' 3 '3-4 veces/sem' 4 '5+ veces/sem'
   /EYA_01 TO EYA_28
@@ -163,7 +166,8 @@ RELIABILITY
   /SUMMARY=TOTAL.
 
 * ---------- 9. DESCRIPTIVOS ----------.
-FREQUENCIES VARIABLES=EDAD SEXO CARRERA ANO_ACADEMICO USO_IA_FREQ
+FREQUENCIES VARIABLES=EDAD SEXO ANO_ACADEMICO USO_IA_FREQ
   /STATISTICS=MEAN MEDIAN MODE STDDEV MIN MAX.
+FREQUENCIES VARIABLES=CARRERA.
 DESCRIPTIVES VARIABLES=D1_COGNITIVA D2_AFECTIVA D3_CONDUCTUAL D4_IDENTITARIA EYA_TOTAL
   /STATISTICS=MEAN STDDEV MIN MAX.

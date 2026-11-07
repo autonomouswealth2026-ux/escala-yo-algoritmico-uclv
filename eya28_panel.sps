@@ -1,4 +1,6 @@
 * EYA-28 · Sintaxis generada automáticamente por el panel del investigador.
+* NOTA 2026-11-07: CARRERA es texto libre (A40). Los datos recogidos antes
+* con códigos corresponden a 1 'Ingeniería Industrial' 2 'Sociología' 3 'Otra'.
 * n válido = 4416 de 5000 casos importados.
 * Los datos ya vienen procesados en el CSV limpio; esta sintaxis reproduce
 * etiquetas, recodificación y cómputos para verificación en IBM SPSS.
@@ -9,7 +11,7 @@ GET DATA /TYPE=TXT
   /QUALIFIER='"'
   /FIRSTCASE=2
   /VARIABLES=
-    ID_SUJETO A20 EDAD F2.0 SEXO F1.0 CARRERA F1.0 ANO_ACADEMICO F1.0 USO_IA_FREQ F1.0
+    ID_SUJETO A20 EDAD F2.0 SEXO F1.0 CARRERA A40 ANO_ACADEMICO F1.0 USO_IA_FREQ F1.0
     EYA_01 F1.0
     EYA_02 F1.0
     EYA_03 F1.0
@@ -47,7 +49,6 @@ EXECUTE.
 
 VALUE LABELS
   SEXO 1 'Masculino' 2 'Femenino'
-  /CARRERA 1 'Ingeniería Industrial' 2 'Sociología' 3 'Otra'
   /USO_IA_FREQ 1 'Rara vez/Nunca' 2 '1-2 veces/sem' 3 '3-4 veces/sem' 4 '5+ veces/sem'
   /EYA_01 TO EYA_28 1 'Totalmente en desacuerdo' 2 'En desacuerdo' 3 'Ni de acuerdo ni en desacuerdo' 4 'De acuerdo' 5 'Totalmente de acuerdo'
   /CALIDAD_OK 0 'Excluir' 1 'Incluir'.

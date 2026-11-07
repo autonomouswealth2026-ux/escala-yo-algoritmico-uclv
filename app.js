@@ -9,7 +9,7 @@ const LIKERT = [
   ['4', 'De\nacuerdo'], ['5', 'Totalmente\nde acuerdo']
 ];
 const MODULES = [
-  { id: 'D1', title: 'Bloque 1 de 4 · Procesos de pensamiento',
+  { id: 'D1', title: 'Dimensión 1 de 4 · Procesos de pensamiento',
     note: 'Ha completado la primera parte. Tómese un momento: las siguientes afirmaciones exploran sus procesos de pensamiento con estas herramientas.',
     items: [
       ['EYA_01', 'Cuando utilizo una IA para mis tareas, reviso críticamente sus respuestas antes de aceptarlas como válidas.'],
@@ -18,9 +18,9 @@ const MODULES = [
       ['EYA_04', 'Modifico las explicaciones que me da la IA para adaptarlas a mi propio criterio y razonamiento personal.'],
       ['EYA_05', 'Suelo pedirle a la IA que me resuma las lecturas obligatorias para evitar leer los textos completos.'],
       ['EYA_06', 'Siento que mi capacidad académica real es mayor cuando cuento con la asistencia de la IA que cuando trabajo solo.'],
-      ['EYA_07', 'Si una tarea requiere razonamiento lógico o matemático extenso, prefiero que la IA plantee los pasos en lugar de deducirlos yo.']
+      ['EYA_07', 'Si una tarea requiere razonamiento lógico extenso, prefiero que la IA plantee los pasos en lugar de deducirlos yo.']
     ]},
-  { id: 'D2', title: 'Bloque 2 de 4 · Experiencias y emociones',
+  { id: 'D2', title: 'Dimensión 2 de 4 · Experiencias y emociones',
     note: 'Va por buen camino. Las siguientes afirmaciones exploran sus experiencias emocionales con estas herramientas.',
     items: [
       ['EYA_08', 'Durante un apagón o cuando no tengo conexión, experimento angustia o bloqueo mental al intentar avanzar en mis estudios.'],
@@ -36,7 +36,7 @@ const MODULES = [
     items: [
       ['EYA_15', 'Para verificar que la pantalla del formulario se visualiza correctamente en su dispositivo, seleccione en este ítem la opción "Totalmente en desacuerdo".']
     ]},
-  { id: 'D3', title: 'Bloque 3 de 4 · Hábitos de estudio',
+  { id: 'D3', title: 'Dimensión 3 de 4 · Hábitos de estudio',
     note: 'Ya casi termina. Las siguientes afirmaciones indagan en sus hábitos y conductas de estudio con estas herramientas.',
     items: [
       ['EYA_16', 'Abrir el chat de la IA es el primer paso reflejo que realizo cada vez que me asignan un trabajo académico nuevo.'],
@@ -46,15 +46,15 @@ const MODULES = [
       ['EYA_20', 'He dejado de consultar fuentes primarias o libros en la biblioteca universitaria debido a la rapidez de las respuestas digitales.'],
       ['EYA_21', 'Mi rutina diaria de estudio se detiene casi por completo cuando no puedo interactuar con herramientas de IA.']
     ]},
-  { id: 'D4', title: 'Bloque 4 de 4 · Su relación con la IA',
-    note: 'Ya casi termina. Este último bloque explora cómo percibe su relación con estas herramientas.',
+  { id: 'D4', title: 'Dimensión 4 de 4 · Su relación con la IA',
+    note: 'Ya casi termina. Esta última dimensión explora cómo percibe su relación con estas herramientas.',
     items: [
       ['EYA_22', 'Me preocupa que mi futuro desempeño profesional se vea comprometido si tengo que ejercer sin el apoyo de la IA.'],
       ['EYA_23', 'Percibo que la IA se ha convertido en una extensión indispensable de mi propia mente para poder rendir en la universidad.'],
       ['EYA_24', 'A veces siento que los trabajos académicos que entrego no reflejan mi voz personal, sino el estilo impersonal de la máquina.'],
       ['EYA_25', 'Aunque obtengo buenas calificaciones con ayuda de la IA, experimento el temor de no ser tan competente como aparento.'],
       ['EYA_26', 'Me cuesta diferenciar cuáles ideas de mis trabajos surgieron de mi propio pensamiento y cuáles fueron aportadas por el algoritmo.'],
-      ['EYA_27', 'Siento culpa ética cuando mis profesores elogian redacciones o análisis que fueron producidos mayormente por la IA.'],
+      ['EYA_27', 'Si recibo elogios por un trabajo hecho en gran parte con IA, siento que el reconocimiento no es del todo justo para mí.'],
       ['EYA_28', 'Percibo que la forma de pensar de la IA impone puntos de vista estandarizados que chocan con mi realidad sociocultural local.']
     ]}
 ];
@@ -142,13 +142,13 @@ function validateStep(n) {
   if (n === 1) {
     const edad = +document.getElementById('edad').value;
     const sexo = document.querySelector('input[name=sexo]:checked');
-    const carrera = document.querySelector('input[name=carrera]:checked');
+    const carrera = document.getElementById('carrera').value.trim();
     const ano = document.getElementById('ano').value;
     const uso = document.querySelector('input[name=uso]:checked');
     const ok = edad >= 17 && edad <= 35 && sexo && carrera && ano && uso;
     document.getElementById('err-1').hidden = ok;
     if (ok) {
-      S.demo = { EDAD: edad, SEXO: sexo.value, CARRERA: carrera.value, ANO_ACADEMICO: ano, USO_IA_FREQ: uso.value };
+      S.demo = { EDAD: edad, SEXO: sexo.value, CARRERA: carrera, ANO_ACADEMICO: ano, USO_IA_FREQ: uso.value };
       if (!S.t0) S.t0 = Date.now();
       save();
     }
@@ -168,7 +168,7 @@ const UMBRAL_PALABRAS = {
   'EYA_04': 17,
   'EYA_05': 17,
   'EYA_06': 20,
-  'EYA_07': 21,
+  'EYA_07': 19,
   'EYA_08': 19,
   'EYA_09': 17,
   'EYA_10': 20,
@@ -188,7 +188,7 @@ const UMBRAL_PALABRAS = {
   'EYA_24': 21,
   'EYA_25': 19,
   'EYA_26': 20,
-  'EYA_27': 17,
+  'EYA_27': 23,
   'EYA_28': 21,
 };
 function umbralItem(code) {
@@ -305,11 +305,12 @@ function finish() {
 function restoreDemo() {
   if (!S.demo) return;
   if (S.demo.EDAD) document.getElementById('edad').value = S.demo.EDAD;
-  ['sexo', 'carrera', 'uso'].forEach(n => {
-    const map = { sexo: 'SEXO', carrera: 'CARRERA', uso: 'USO_IA_FREQ' };
+  ['sexo', 'uso'].forEach(n => {
+    const map = { sexo: 'SEXO', uso: 'USO_IA_FREQ' };
     const v = S.demo[map[n]];
     if (v) { const r = document.querySelector(`input[name=${n}][value="${v}"]`); if (r) r.checked = true; }
   });
+  if (S.demo.CARRERA) document.getElementById('carrera').value = S.demo.CARRERA;
   if (S.demo.ANO_ACADEMICO) document.getElementById('ano').value = S.demo.ANO_ACADEMICO;
 }
 /* ============ Textos editables (prototipo del panel de edición) ============ */
